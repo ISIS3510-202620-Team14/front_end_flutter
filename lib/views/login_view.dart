@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import '../theme/input_styles.dart';
 import '../viewmodels/login_viewmodel.dart';
 import '../widgets/login_button.dart';
+import 'home_shell.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -18,6 +19,13 @@ class _LoginViewState extends State<LoginView> {
   void dispose() {
     _viewModel.dispose();
     super.dispose();
+  }
+
+  void _goToHome() {
+    _viewModel.login();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const HomeShell()),
+    );
   }
 
   @override
@@ -68,7 +76,7 @@ class _LoginViewState extends State<LoginView> {
               ),
               const SizedBox(height: 32),
 
-              LoginButton(onPressed: _viewModel.login),
+              LoginButton(onPressed: _goToHome),
             ],
           ),
         ),
