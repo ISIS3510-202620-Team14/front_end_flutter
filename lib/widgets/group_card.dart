@@ -73,7 +73,6 @@ class GroupCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
 
-          .
           Row(
             children: [
               const Icon(Icons.school_outlined,
