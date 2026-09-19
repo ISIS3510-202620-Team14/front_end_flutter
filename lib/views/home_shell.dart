@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/home_viewmodel.dart';
+import '../viewmodels/grupos_viewmodel.dart';
 import '../widgets/home_bottom_nav.dart';
 import '../widgets/home_top_bar.dart';
+import 'grupos_view.dart';
 import 'hoy_view.dart';
 
 class HomeShell extends StatefulWidget {
@@ -14,6 +16,19 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   final _viewModel = HomeViewModel();
+  final _gruposViewModel = GruposViewModel();
+
+  int _currentIndex = 0;
+
+  Widget _buildCurrentView() {
+    switch (_currentIndex) {
+      case 2:
+        return GruposView(viewModel: _gruposViewModel);
+      case 0:
+      default:
+        return HoyView(viewModel: _viewModel);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,12 +40,12 @@ class _HomeShellState extends State<HomeShell> {
             teacherName: _viewModel.teacherName,
             onChangeUser: _viewModel.changeUser,
           ),
-          Expanded(child: HoyView(viewModel: _viewModel)),
+          Expanded(child: _buildCurrentView()),
         ],
       ),
       bottomNavigationBar: HomeBottomNav(
-        currentIndex: 0,
-        onSelect: (_) {},
+        currentIndex: _currentIndex,
+        onSelect: (index) => setState(() => _currentIndex = index),
       ),
     );
   }
