@@ -11,10 +11,10 @@ class LoginViewModel extends ChangeNotifier {
   }
 
   void login() {
-    // TODO: enviar User al servicio de autenticación
+    // TODO: send User to authentication service with username and password
     // username: usernameController.text
     // password: passwordController.text)
-    // @Juanesillo no se si bajo tu experticie en cyber esto sea buena idea
+    
   }
 
   @override

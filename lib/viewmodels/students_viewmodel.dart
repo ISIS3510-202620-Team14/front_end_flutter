@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/student.dart';
  
 class StudentsViewModel extends ChangeNotifier {
-  //Reemplazo base de datos por una lista de estudiantes para pruebas mientras se hace el backend.
+  //Temprary list while we build backend
   List<Student> _students = const [
     Student(number: 1, name: 'María López Quintero', grade: 'Grado 3'),
     Student(number: 2, name: 'Juan Carlos Cruz', grade: 'Grado 3', sex: 'M'),
@@ -20,7 +20,7 @@ class StudentsViewModel extends ChangeNotifier {
  
   int get activeCount => _students.where((s) => !s.withdrawn).length;
  
-  // Evaluados de una materia, sin contar a los retirados.
+  
   int evaluatedCount(String subject) => _students
       .where((s) => !s.withdrawn && s.levels.containsKey(subject))
       .length;
@@ -33,7 +33,7 @@ class StudentsViewModel extends ChangeNotifier {
     _update(number, (s) => s.copyWith(age: age));
   }
  
-  // Asignar un nivel también reactiva al estudiante si estaba retirado.
+  
   void setLevel(int number, String subject, String level) {
     _update(
       number,
@@ -44,7 +44,7 @@ class StudentsViewModel extends ChangeNotifier {
     );
   }
  
-  // Retirado del colegio: en Lectura y Matemáticas.
+  
   void withdraw(int number) {
     _update(number, (s) => s.copyWith(withdrawn: true));
   }

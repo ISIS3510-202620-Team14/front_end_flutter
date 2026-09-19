@@ -5,7 +5,7 @@ import 'students_viewmodel.dart';
  
 class HomeViewModel extends ChangeNotifier {
   HomeViewModel() {
-    // Hoy sabe si se clasificó o se retiró a un estudiante.
+  
     studentsViewModel.addListener(notifyListeners);
   }
  

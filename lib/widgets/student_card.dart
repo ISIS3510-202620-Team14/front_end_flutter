@@ -139,7 +139,7 @@ class StudentCard extends StatelessWidget {
                   ),
               ],
             ),
-            // Retirado va aparte, en su propia fila, igual que en el Kotlin.
+            
             const SizedBox(height: 8),
             LevelChip(
               level: withdrawnLevel,
