@@ -14,6 +14,10 @@ class AppTheme {
   static const amber = Color(0xFFB4700F);
   static const amberBackground = Color(0xFFFBF0DE);
   static const amberText = Color(0xFF955D0C);
+    static const pendingBackground = Color(0xFFF4E3C8);
+  static const pendingText = Color(0xFF8A5A22);
+  static const assessedBackground = Color(0xFFD7ECDD);
+  static const assessedText = Color(0xFF2E6B45);
 
   static ThemeData get theme => ThemeData(
     scaffoldBackgroundColor: cream,
