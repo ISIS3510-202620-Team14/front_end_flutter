@@ -6,7 +6,7 @@ There is no backend: all data lives in memory and resets when the app is closed 
 ## Execution
 
 Requirements:
-- Flutter 3.38.4 or later versiones
+- Flutter 3.38.4 or later versions
 - Dart 3.13.3 or later versions
 
 From the root folder of the project (`front_end_flutter`), run:
