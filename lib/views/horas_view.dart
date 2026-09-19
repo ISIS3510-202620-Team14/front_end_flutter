@@ -44,7 +44,10 @@ class _HorasViewState extends State<HorasView> {
               children: [
                 Text(
                   'Reporte Interno ENAd',
-                  style: Theme.of(context).textTheme.headlineMedium,
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineLarge
+                      ?.copyWith(fontSize: 24),
                 ),
                 const SizedBox(height: 4),
                 Text(
