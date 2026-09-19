@@ -5,6 +5,7 @@ import '../viewmodels/grupos_viewmodel.dart';
 import '../widgets/home_bottom_nav.dart';
 import '../widgets/home_top_bar.dart';
 import 'grupos_view.dart';
+import 'horas_view.dart';
 import 'hoy_view.dart';
 
 class HomeShell extends StatefulWidget {
@@ -24,6 +25,12 @@ class _HomeShellState extends State<HomeShell> {
     switch (_currentIndex) {
       case 2:
         return GruposView(viewModel: _gruposViewModel);
+      case 3:
+        return HorasView(
+          groupName: _gruposViewModel.currentGroups.isNotEmpty
+              ? _gruposViewModel.currentGroups.first.name
+              : 'Grupo',
+        );
       case 0:
       default:
         return HoyView(viewModel: _viewModel);
