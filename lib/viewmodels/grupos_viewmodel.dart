@@ -8,7 +8,7 @@ class GruposViewModel extends ChangeNotifier {
       'Un niño puede estar en un grupo de matemáticas y en otro de lectura.';
   final List<String> subjectLabels = const ['Matemáticas', 'Lectura'];
 
-  //When Api is ready, this will be replaced by a call to the backend to get the groups of the user.
+  //Will be changed to a backend call when we have the backend ready
   final List<Group> _mathGroups = const [
     Group(name: 'Grupo Abejitas', childrenCount: 2, teacherLabel: 'Yo'),
     Group(

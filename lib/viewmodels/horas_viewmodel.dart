@@ -71,7 +71,7 @@ class HorasViewModel extends ChangeNotifier {
   }
 
   void submitReport() {
-    // TODO: Conectar con backend y enviar el reporte. Por ahora solo debugPrint.
+    // TODO: Conect with backend once it's ready. For now, just print the report to the console.
     debugPrint('Reporte enviado: $_report');
   }
 
