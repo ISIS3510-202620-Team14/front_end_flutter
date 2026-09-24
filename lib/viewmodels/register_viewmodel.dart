@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_api.dart';
 
-class LoginViewModel extends ChangeNotifier {
+class RegisterViewModel extends ChangeNotifier {
+  final nameController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool obscurePassword = true;
@@ -13,24 +14,31 @@ class LoginViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login() async {
+
+  Future<bool> register() async {
     isLoading = true;
     error = null;
     notifyListeners();
 
     try {
-      await AuthApi.login(emailController.text.trim(), passwordController.text);
-      return; 
+      await AuthApi.register(
+        nameController.text.trim(),
+        emailController.text.trim(),
+        passwordController.text,
+      );
+      return true;
     } on AuthError catch (e) {
       error = e.message;
     }
 
     isLoading = false;
     notifyListeners();
+    return false;
   }
 
   @override
   void dispose() {
+    nameController.dispose();
     emailController.dispose();
     passwordController.dispose();
     super.dispose();

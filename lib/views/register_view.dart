@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/input_styles.dart';
-import '../viewmodels/login_viewmodel.dart';
+import '../viewmodels/register_viewmodel.dart';
 import '../widgets/login_button.dart';
-import 'register_view.dart';
 
-class LoginView extends StatefulWidget {
-  const LoginView({super.key});
+class RegisterView extends StatefulWidget {
+  const RegisterView({super.key});
 
   @override
-  State<LoginView> createState() => _LoginViewState();
+  State<RegisterView> createState() => _RegisterViewState();
 }
 
-class _LoginViewState extends State<LoginView> {
-  final _viewModel = LoginViewModel();
+class _RegisterViewState extends State<RegisterView> {
+  final _viewModel = RegisterViewModel();
 
   @override
   void dispose() {
@@ -21,16 +20,22 @@ class _LoginViewState extends State<LoginView> {
     super.dispose();
   }
 
-  void _goToRegister() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RegisterView()),
-    );
+  Future<void> _submit() async {
+    final creada = await _viewModel.register();
+    // Esta pantalla está encima del AuthGate: hay que cerrarla para
+    // que se vea la app con la sesión ya abierta.
+    if (creada && mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.cream,
+      appBar: AppBar(
+        backgroundColor: AppTheme.cream,
+        elevation: 0,
+        foregroundColor: AppTheme.ink,
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -40,16 +45,19 @@ class _LoginViewState extends State<LoginView> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 60),
-                  Text('ENAd Móvil',
+                  Text('Crear cuenta',
                       style: Theme.of(context)
                           .textTheme
                           .headlineLarge
                           ?.copyWith(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 8),
-                  Text('Ingresa con tu correo y contraseña.',
-                      style: Theme.of(context).textTheme.bodyLarge),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
+
+                  TextField(
+                    controller: _viewModel.nameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: appInputDecoration('Nombre completo'),
+                  ),
+                  const SizedBox(height: 16),
 
                   TextField(
                     controller: _viewModel.emailController,
@@ -82,17 +90,9 @@ class _LoginViewState extends State<LoginView> {
                   ],
 
                   LoginButton(
-                    onPressed: _viewModel.login,
+                    onPressed: _submit,
+                    label: 'Crear cuenta',
                     isLoading: _viewModel.isLoading,
-                  ),
-                  const SizedBox(height: 16),
-
-                  Center(
-                    child: TextButton(
-                      onPressed: _goToRegister,
-                      child: const Text('¿No tienes cuenta? Regístrate',
-                          style: TextStyle(color: AppTheme.red)),
-                    ),
                   ),
                 ],
               );

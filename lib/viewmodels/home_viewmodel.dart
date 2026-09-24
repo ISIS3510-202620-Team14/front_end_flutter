@@ -1,6 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../models/quick_action.dart';
 import '../models/subject_progress.dart';
+import '../services/auth_api.dart';
 import 'students_viewmodel.dart';
  
 class HomeViewModel extends ChangeNotifier {
@@ -11,7 +13,9 @@ class HomeViewModel extends ChangeNotifier {
  
   final StudentsViewModel studentsViewModel = StudentsViewModel();
  
-  final String teacherName = 'Mateo';
+
+  String get teacherName =>
+      FirebaseAuth.instance.currentUser?.displayName ?? 'Docente';
   final String studentName = 'Antonia Santos';
   final String grade = 'Grado 5';
   final String sectionTitle = 'Educación formativa';
@@ -39,7 +43,7 @@ class HomeViewModel extends ChangeNotifier {
   ];
  
   void changeUser() {
-    // TODO:  backend
+    AuthApi.logout();
   }
  
   SubjectProgress _progressOf(String title) {
