@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'analytics_service.dart';
 
-/// En debug hablamos con los emuladores locales; al compilar en release,
-/// con el backend desplegado. No hay que pasar ninguna bandera.
+
 const usarEmuladores = kDebugMode;
 
-/// El emulador de Android ve tu computador en 10.0.2.2, no en 127.0.0.1.
+
 String get hostLocal =>
     !kIsWeb && defaultTargetPlatform == TargetPlatform.android
         ? '10.0.2.2'
@@ -18,14 +18,13 @@ String get _baseUrl => usarEmuladores
     ? 'http://$hostLocal:5001/enad-movil/us-central1'
     : 'https://us-central1-enad-movil.cloudfunctions.net';
 
-/// Error con el mensaje ya listo para mostrar en pantalla.
+
 class AuthError implements Exception {
   final String message;
   AuthError(this.message);
 }
 
-/// El backend valida correo y contraseña y devuelve un token.
-/// Firebase solo abre la sesión con ese token y la mantiene.
+
 class AuthApi {
   static Stream<User?> get changes => FirebaseAuth.instance.authStateChanges();
 
@@ -44,7 +43,7 @@ class AuthApi {
   static Future<void> _entrar(String ruta, Map<String, String> datos) async {
     final http.Response respuesta;
 
-    // 1. No llegamos al servidor.
+    
     try {
       respuesta = await http
           .post(
@@ -87,5 +86,11 @@ class AuthApi {
           ? 'No pudimos conectar con Firebase.'
           : 'Firebase rechazó el token (${e.code}). Avisa al equipo.');
     }
+
+
+    AnalyticsService.instance.log(
+      ruta == 'register' ? AnalyticsEvents.signUp : AnalyticsEvents.login,
+      {'method': 'password'},
+    );
   }
 }

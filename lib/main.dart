@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ Future<void> main() async {
 
   if (usarEmuladores) {
     await FirebaseAuth.instance.useAuthEmulator(hostLocal, 9099);
+    FirebaseFirestore.instance.useFirestoreEmulator(hostLocal, 8080);
   }
 
   runApp(const MyApp());
