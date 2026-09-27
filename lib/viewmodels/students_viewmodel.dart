@@ -49,6 +49,27 @@ class StudentsViewModel extends ChangeNotifier {
     _update(number, (s) => s.copyWith(withdrawn: true));
   }
  
+
+  int importStudents(List<({String name, String sex})> rows,
+      {required String grade}) {
+    final existing = _students.map((s) => s.name.toLowerCase()).toSet();
+    var next = _students.isEmpty
+        ? 1
+        : _students.map((s) => s.number).reduce((a, b) => a > b ? a : b) + 1;
+
+    final added = <Student>[
+      for (final r in rows)
+        if (existing.add(r.name.toLowerCase()))
+          Student(number: next++, name: r.name, grade: grade, sex: r.sex),
+    ];
+
+    if (added.isNotEmpty) {
+      _students = [..._students, ...added];
+      notifyListeners();
+    }
+    return added.length;
+  }
+
   void _update(int number, Student Function(Student) change) {
     _students = [
       for (final s in _students) s.number == number ? change(s) : s,

@@ -42,6 +42,10 @@ class HomeViewModel extends ChangeNotifier {
     ),
   ];
  
+
+  int importScanned(List<({String name, String sex})> rows) =>
+      studentsViewModel.importStudents(rows, grade: grade);
+
   void changeUser() {
     AuthApi.logout();
   }

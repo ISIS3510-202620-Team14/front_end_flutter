@@ -103,7 +103,7 @@ class StudentCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    initialValue: student.sex,
+                    initialValue: student.sex.isEmpty ? null : student.sex,
                     decoration: appInputDecoration('Sexo'),
                     items: const [
                       DropdownMenuItem(value: 'F', child: Text('F')),

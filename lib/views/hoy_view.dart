@@ -3,12 +3,28 @@ import '../viewmodels/home_viewmodel.dart';
 import '../widgets/quick_action_card.dart';
 import '../widgets/subject_progress_card.dart';
 import 'classification_view.dart';
+import 'scanner_view.dart';
+import '../models/quick_action.dart';
  
 class HoyView extends StatelessWidget {
   final HomeViewModel viewModel;
  
   const HoyView({super.key, required this.viewModel});
  
+  Future<void> _openScanner(BuildContext context) async {
+    final rows = await showStudentScanner(context);
+    if (rows == null || !context.mounted) return;
+
+    final added = viewModel.importScanned([
+      for (final r in rows) (name: r.name, sex: r.sex),
+    ]);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(added == 0
+          ? 'Esos estudiantes ya estaban en la lista.'
+          : 'Se importaron $added estudiantes.'),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -51,6 +67,16 @@ class HoyView extends StatelessWidget {
                 QuickActionCard(action: action),
                 const SizedBox(height: 16),
               ],
+              QuickActionCard(
+                action: const QuickAction(
+                  icon: Icons.document_scanner_outlined,
+                  title: 'Escanear lista',
+                  subtitle: 'Importa estudiantes con la cámara',
+                  shape: QuickActionShape.roundedSquare,
+                ),
+                onTap: () => _openScanner(context),
+              ),
+              const SizedBox(height: 16),
               const SizedBox(height: 8),
               Text(
                 viewModel.demoNote,
