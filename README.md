@@ -1,7 +1,7 @@
 # front_end_flutter
 
 Native prototype of ENAd Móvil (all in a teachers interface), built with Flutter.
-There is no backend: all data lives in memory and resets when the app is closed or the user changes.
+Authentication uses Firebase Auth and the register/login HTTP endpoints. Some classroom screens still use prototype data.
 
 ## Execution
 
@@ -19,7 +19,7 @@ From the root folder of the project (`front_end_flutter`), run:
 ### Samuel Charry: Login and Home
 
 The login is the first screen of the app, so it can be found as soon as the app is opened.
-Enter the credentials (user: `mateo`, password: `1234`) and then you can see the implementation of the Home.
+Create an account with your name, email and password, or sign in with an existing Firebase account. New accounts receive the sin_privilegios role; an administrator assigns the docente role and schoolIds. Firebase restores the session when reopening the app. Cambiar usuario signs out.
 
 **Login**
 - `lib/views/login_view.dart`
@@ -75,3 +75,13 @@ The Groups and Hours screens can be found in the navigation bar at the bottom of
 - `lib/widgets/hours_number_field.dart`
 - `lib/widgets/hours_period_selector.dart`
 - `lib/widgets/hours_reason_field.dart`
+
+## Firebase authentication
+
+By default the app connects to the configured Firebase project. For local testing:
+
+    flutter run --dart-define=USE_EMULATORS=true
+
+Start Auth (9099), Firestore (8080) and Functions (5001) emulators in the backend first. Android emulators use 10.0.2.2; web and desktop use 127.0.0.1. A physical phone needs a reachable host configuration.
+
+Protected HTTP endpoints must use AuthApi.getIdToken() in Authorization: Bearer <token>. The customToken returned by login is only for opening the Firebase session. Passwords are managed by Firebase Auth.

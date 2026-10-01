@@ -37,8 +37,7 @@ class _LoginViewState extends State<LoginView> {
           child: ListenableBuilder(
             listenable: _viewModel,
             builder: (context, _) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              return ListView(
                 children: [
                   const SizedBox(height: 60),
                   Text('ENAd Móvil',

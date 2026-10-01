@@ -42,8 +42,7 @@ class _RegisterViewState extends State<RegisterView> {
           child: ListenableBuilder(
             listenable: _viewModel,
             builder: (context, _) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              return ListView(
                 children: [
                   Text('Crear cuenta',
                       style: Theme.of(context)

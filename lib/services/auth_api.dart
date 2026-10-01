@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'analytics_service.dart';
 
 
-const usarEmuladores = kDebugMode;
+const usarEmuladores = bool.fromEnvironment('USE_EMULATORS');
 
 
 String get hostLocal =>
@@ -38,6 +38,14 @@ class AuthApi {
   static Future<void> login(String email, String password) =>
       _entrar('login', {'email': email, 'password': password});
 
+  static Future<String> getIdToken() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw AuthError('Inicia sesión para continuar.');
+    final token = await user.getIdToken();
+    if (token == null) throw AuthError('Inicia sesión de nuevo.');
+    return token;
+  }
+
   static Future<void> logout() => FirebaseAuth.instance.signOut();
 
   static Future<void> _entrar(String ruta, Map<String, String> datos) async {
@@ -53,7 +61,7 @@ class AuthApi {
           )
           .timeout(const Duration(seconds: 15));
     } catch (_) {
-      throw AuthError('No pudimos conectar con el servidor ($_baseUrl).');
+      throw AuthError('No pudimos conectar. Revisa tu conexión e intenta de nuevo.');
     }
 
     Map<String, dynamic>? cuerpo;
