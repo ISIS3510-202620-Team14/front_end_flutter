@@ -206,7 +206,8 @@ class _UsageCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'De tus ${vm.total} actividades, ${vm.libraryCount} salieron de la '
+            'En tu historial, de ${vm.total} actividades planeadas, '
+            '${vm.libraryCount} salieron de la '
             'biblioteca y ${vm.customCount} las creaste tú '
             '(${vm.customPercent}%).',
             style: text.bodyLarge?.copyWith(fontSize: 14),

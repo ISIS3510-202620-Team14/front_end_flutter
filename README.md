@@ -85,3 +85,7 @@ By default the app connects to the configured Firebase project. For local testin
 Start Auth (9099), Firestore (8080) and Functions (5001) emulators in the backend first. Android emulators use 10.0.2.2; web and desktop use 127.0.0.1. A physical phone needs a reachable host configuration.
 
 Protected HTTP endpoints must use AuthApi.getIdToken() in Authorization: Bearer <token>. The customToken returned by login is only for opening the Firebase session. Passwords are managed by Firebase Auth.
+
+## Activity usage business question
+
+The Activities screen shows the percentage of the signed-in teacher's planned activities taken from the library versus created by that teacher. See [BQ type 2: activity usage](docs/BQ2-uso-de-actividades.md) for the calculation, data flow, and wiki evidence.
