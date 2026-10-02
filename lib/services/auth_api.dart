@@ -31,10 +31,11 @@ class AuthError implements Exception {
 class AuthApi {
   static Stream<User?> get changes => FirebaseAuth.instance.authStateChanges();
 
-  static Future<void> register(
-          String name, String email, String password,
-          Map<String, List<String>> campusesBySchool) =>
-      _entrar('register', {
+  /// Devuelve true si el back alcanzó a enviar el correo de bienvenida.
+  static Future<bool> register(
+      String name, String email, String password,
+      Map<String, List<String>> campusesBySchool) async {
+    final cuerpo = await _entrar('register', {
         'fullName': name,
         'email': email,
         'password': password,
@@ -43,6 +44,8 @@ class AuthApi {
             {'schoolId': e.key, 'campusIds': e.value},
         ],
       });
+    return cuerpo['welcomeEmailSent'] == true;
+  }
 
   /// Escuelas para el registro. No necesita sesión.
   static Future<List<School>> schools() async {
@@ -68,7 +71,9 @@ class AuthApi {
 
   static Future<void> logout() => FirebaseAuth.instance.signOut();
 
-  static Future<void> _entrar(String ruta, Map<String, Object> datos) async {
+  /// Abre la sesión con el token del back y devuelve el resto de la respuesta.
+  static Future<Map<String, dynamic>> _entrar(
+      String ruta, Map<String, Object> datos) async {
     final http.Response respuesta;
 
     // 1. No llegamos al servidor.
@@ -114,5 +119,6 @@ class AuthApi {
           ? 'No pudimos conectar con Firebase.'
           : 'Firebase rechazó el token (${e.code}). Avisa al equipo.');
     }
+    return cuerpo;
   }
 }

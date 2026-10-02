@@ -22,9 +22,18 @@ class _RegisterViewState extends State<RegisterView> {
 
   Future<void> _submit() async {
     final creada = await _viewModel.register();
+    if (!creada || !mounted) return;
+
+    // El aviso se pide antes de cerrar la pantalla para que siga visible en la app.
+    if (_viewModel.welcomeEmailSent) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Te enviamos un correo de bienvenida a '
+            '${_viewModel.emailController.text.trim()}.'),
+      ));
+    }
     // Esta pantalla está encima del AuthGate: hay que cerrarla para
     // que se vea la app con la sesión ya abierta.
-    if (creada && mounted) Navigator.of(context).pop();
+    Navigator.of(context).pop();
   }
 
   @override

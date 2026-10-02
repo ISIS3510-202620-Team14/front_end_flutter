@@ -16,6 +16,9 @@ class RegisterViewModel extends ChangeNotifier {
   final Map<String, Set<String>> selectedCampuses = {};
   bool isLoadingSchools = true;
 
+  // Si el back alcanzó a enviar el correo de bienvenida al crear la cuenta.
+  bool welcomeEmailSent = false;
+
   RegisterViewModel() {
     loadSchools();
   }
@@ -83,7 +86,7 @@ class RegisterViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await AuthApi.register(
+      welcomeEmailSent = await AuthApi.register(
         nameController.text.trim(),
         emailController.text.trim(),
         passwordController.text,
