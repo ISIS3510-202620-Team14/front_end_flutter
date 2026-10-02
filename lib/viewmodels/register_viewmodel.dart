@@ -11,7 +11,9 @@ class RegisterViewModel extends ChangeNotifier {
   String? error;
 
   List<School> schools = [];
-  String? selectedSchoolId;
+  // Un docente puede trabajar en varias instituciones y, en cada una, en varias sedes.
+  // Llave: id de la institución; valor: ids de las sedes elegidas en ella.
+  final Map<String, Set<String>> selectedCampuses = {};
   bool isLoadingSchools = true;
 
   RegisterViewModel() {
@@ -30,9 +32,36 @@ class RegisterViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selectSchool(String? id) {
-    selectedSchoolId = id;
+  bool isSchoolSelected(String schoolId) =>
+      selectedCampuses.containsKey(schoolId);
+
+  bool isCampusSelected(String schoolId, String campusId) =>
+      selectedCampuses[schoolId]?.contains(campusId) ?? false;
+
+  void toggleSchool(String schoolId) {
+    if (selectedCampuses.remove(schoolId) == null) {
+      selectedCampuses[schoolId] = {};
+    }
     notifyListeners();
+  }
+
+  void toggleCampus(String schoolId, String campusId) {
+    final sedes = selectedCampuses[schoolId];
+    if (sedes == null) return;
+    if (!sedes.remove(campusId)) sedes.add(campusId);
+    notifyListeners();
+  }
+
+  // Mensaje si falta elegir algo, o null si la selección está completa.
+  String? _faltaSeleccion() {
+    if (selectedCampuses.isEmpty) return 'Elige al menos una institución.';
+    for (final school in schools) {
+      final sedes = selectedCampuses[school.id];
+      if (sedes != null && school.campuses.isNotEmpty && sedes.isEmpty) {
+        return 'Elige al menos una sede de ${school.name}.';
+      }
+    }
+    return null;
   }
 
   void toggleObscurePassword() {
@@ -42,8 +71,9 @@ class RegisterViewModel extends ChangeNotifier {
 
 
   Future<bool> register() async {
-    if (selectedSchoolId == null) {
-      error = 'Elige tu escuela.';
+    final falta = _faltaSeleccion();
+    if (falta != null) {
+      error = falta;
       notifyListeners();
       return false;
     }
@@ -57,7 +87,9 @@ class RegisterViewModel extends ChangeNotifier {
         nameController.text.trim(),
         emailController.text.trim(),
         passwordController.text,
-        selectedSchoolId!,
+        {
+          for (final e in selectedCampuses.entries) e.key: e.value.toList(),
+        },
       );
       return true;
     } on AuthError catch (e) {

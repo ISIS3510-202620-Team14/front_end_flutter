@@ -32,12 +32,16 @@ class AuthApi {
   static Stream<User?> get changes => FirebaseAuth.instance.authStateChanges();
 
   static Future<void> register(
-          String name, String email, String password, String schoolId) =>
+          String name, String email, String password,
+          Map<String, List<String>> campusesBySchool) =>
       _entrar('register', {
         'fullName': name,
         'email': email,
         'password': password,
-        'schoolId': schoolId,
+        'schools': [
+          for (final e in campusesBySchool.entries)
+            {'schoolId': e.key, 'campusIds': e.value},
+        ],
       });
 
   /// Escuelas para el registro. No necesita sesión.
@@ -64,7 +68,7 @@ class AuthApi {
 
   static Future<void> logout() => FirebaseAuth.instance.signOut();
 
-  static Future<void> _entrar(String ruta, Map<String, String> datos) async {
+  static Future<void> _entrar(String ruta, Map<String, Object> datos) async {
     final http.Response respuesta;
 
     // 1. No llegamos al servidor.

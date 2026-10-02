@@ -42,8 +42,7 @@ class _RegisterViewState extends State<RegisterView> {
           child: ListenableBuilder(
             listenable: _viewModel,
             builder: (context, _) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              return ListView(
                 children: [
                   Text('Crear cuenta',
                       style: Theme.of(context)
@@ -83,25 +82,47 @@ class _RegisterViewState extends State<RegisterView> {
                   ),
                   const SizedBox(height: 16),
 
-                  DropdownButtonFormField<String>(
-                    initialValue: _viewModel.selectedSchoolId,
-                    isExpanded: true,
-                    decoration: appInputDecoration(
-                        _viewModel.isLoadingSchools
-                            ? 'Cargando escuelas...'
-                            : 'Escuela'),
-                    items: [
+                  Text(
+                      _viewModel.isLoadingSchools
+                          ? 'Cargando escuelas...'
+                          : 'Instituciones donde trabajas (puedes elegir varias)',
+                      style: const TextStyle(color: AppTheme.softInk)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
                       for (final school in _viewModel.schools)
-                        DropdownMenuItem(
-                          value: school.id,
-                          child: Text(school.label,
-                              overflow: TextOverflow.ellipsis),
+                        _chip(
+                          school.label,
+                          _viewModel.isSchoolSelected(school.id),
+                          () => _viewModel.toggleSchool(school.id),
                         ),
                     ],
-                    onChanged: _viewModel.isLoadingSchools
-                        ? null
-                        : _viewModel.selectSchool,
                   ),
+
+                  // Sedes de cada institución elegida que tenga sedes.
+                  for (final school in _viewModel.schools)
+                    if (_viewModel.isSchoolSelected(school.id) &&
+                        school.campuses.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text('Sedes de ${school.name}',
+                          style: const TextStyle(color: AppTheme.softInk)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final campus in school.campuses)
+                            _chip(
+                              campus.name,
+                              _viewModel.isCampusSelected(school.id, campus.id),
+                              () => _viewModel.toggleCampus(
+                                  school.id, campus.id),
+                            ),
+                        ],
+                      ),
+                    ],
                   const SizedBox(height: 32),
 
                   if (_viewModel.error != null) ...[
@@ -121,6 +142,18 @@ class _RegisterViewState extends State<RegisterView> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _chip(String label, bool selected, VoidCallback onTap) {
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      selectedColor: AppTheme.red.withValues(alpha: 0.12),
+      checkmarkColor: AppTheme.red,
+      backgroundColor: AppTheme.surface,
+      side: const BorderSide(color: AppTheme.line),
     );
   }
 }
