@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "1033137996",
+    "project_id": "enad-movil",
+    "storage_bucket": "enad-movil.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1033137996:android:4b3cdcd704b240d3b5a9e9",
+        "android_client_info": {
+          "package_name": "com.enad.enadmovil"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1033137996-rjcut9fkjr5f3m6aaivbbfm2kg87tjlb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmbFyGHgBYO1vqdwDbTqXdotyXP6wtxwQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1033137996-rjcut9fkjr5f3m6aaivbbfm2kg87tjlb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1033137996-0q8vct49sl1atq5tgeo3o37ih9jsmcl5.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.frontEndFlutter"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1033137996:android:815ea64d63404354b5a9e9",
+        "android_client_info": {
+          "package_name": "com.example.front_end_flutter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1033137996-rjcut9fkjr5f3m6aaivbbfm2kg87tjlb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmbFyGHgBYO1vqdwDbTqXdotyXP6wtxwQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1033137996-rjcut9fkjr5f3m6aaivbbfm2kg87tjlb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1033137996-0q8vct49sl1atq5tgeo3o37ih9jsmcl5.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.frontEndFlutter"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

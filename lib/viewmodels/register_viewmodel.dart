@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_api.dart';
 
-class LoginViewModel extends ChangeNotifier {
+class RegisterViewModel extends ChangeNotifier {
+  final nameController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool obscurePassword = true;
@@ -14,21 +15,26 @@ class LoginViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login() async {
-    if (isLoading) return;
+
+  Future<bool> register() async {
+    if (isLoading) return false;
     final email = emailController.text.trim();
-    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email) || passwordController.text.isEmpty) {
-      error = 'Escribe un correo válido y tu contraseña.';
+    if (nameController.text.trim().isEmpty || !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email) || passwordController.text.length < 6) {
+      error = 'Escribe tu nombre, un correo válido y una contraseña de al menos 6 caracteres.';
       notifyListeners();
-      return;
+      return false;
     }
     isLoading = true;
     error = null;
     notifyListeners();
 
     try {
-      await AuthApi.login(emailController.text.trim(), passwordController.text);
-      return;
+      await AuthApi.register(
+        nameController.text.trim(),
+        emailController.text.trim(),
+        passwordController.text,
+      );
+      return true;
     } on AuthError catch (e) {
       error = e.message;
     } catch (_) {
@@ -37,11 +43,13 @@ class LoginViewModel extends ChangeNotifier {
       isLoading = false;
       if (!_disposed) notifyListeners();
     }
+    return false;
   }
 
   @override
   void dispose() {
     _disposed = true;
+    nameController.dispose();
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
