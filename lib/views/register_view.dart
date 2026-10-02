@@ -81,6 +81,27 @@ class _RegisterViewState extends State<RegisterView> {
                           onPressed: _viewModel.toggleObscurePassword,
                         )),
                   ),
+                  const SizedBox(height: 16),
+
+                  DropdownButtonFormField<String>(
+                    initialValue: _viewModel.selectedSchoolId,
+                    isExpanded: true,
+                    decoration: appInputDecoration(
+                        _viewModel.isLoadingSchools
+                            ? 'Cargando escuelas...'
+                            : 'Escuela'),
+                    items: [
+                      for (final school in _viewModel.schools)
+                        DropdownMenuItem(
+                          value: school.id,
+                          child: Text(school.label,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    onChanged: _viewModel.isLoadingSchools
+                        ? null
+                        : _viewModel.selectSchool,
+                  ),
                   const SizedBox(height: 32),
 
                   if (_viewModel.error != null) ...[

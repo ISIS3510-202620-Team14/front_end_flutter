@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../models/school.dart';
 
 /// En debug hablamos con los emuladores locales; al compilar en release,
-/// con el backend desplegado. No hay que pasar ninguna bandera.
-const usarEmuladores = kDebugMode;
+/// con el backend desplegado. Para un release contra los emuladores:
+/// --dart-define=EMULADORES=true
+const usarEmuladores = bool.fromEnvironment('EMULADORES') || kDebugMode;
 
 /// El emulador de Android ve tu computador en 10.0.2.2, no en 127.0.0.1.
 String get hostLocal =>
@@ -29,12 +31,33 @@ class AuthError implements Exception {
 class AuthApi {
   static Stream<User?> get changes => FirebaseAuth.instance.authStateChanges();
 
-  static Future<void> register(String name, String email, String password) =>
+  static Future<void> register(
+          String name, String email, String password, String schoolId) =>
       _entrar('register', {
         'fullName': name,
         'email': email,
         'password': password,
+        'schoolId': schoolId,
       });
+
+  /// Escuelas para el registro. No necesita sesión.
+  static Future<List<School>> schools() async {
+    final http.Response respuesta;
+    try {
+      respuesta = await http
+          .get(Uri.parse('$_baseUrl/registerSchools'))
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {
+      throw AuthError('No pudimos conectar con el servidor ($_baseUrl).');
+    }
+    if (respuesta.statusCode != 200) {
+      throw AuthError('No pudimos cargar las escuelas. Intenta más tarde.');
+    }
+    final cuerpo = jsonDecode(respuesta.body) as Map<String, dynamic>;
+    return (cuerpo['schools'] as List)
+        .map((e) => School.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
 
   static Future<void> login(String email, String password) =>
       _entrar('login', {'email': email, 'password': password});

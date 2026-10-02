@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/school.dart';
 import '../services/auth_api.dart';
 
 class RegisterViewModel extends ChangeNotifier {
@@ -9,6 +10,31 @@ class RegisterViewModel extends ChangeNotifier {
   bool isLoading = false;
   String? error;
 
+  List<School> schools = [];
+  String? selectedSchoolId;
+  bool isLoadingSchools = true;
+
+  RegisterViewModel() {
+    loadSchools();
+  }
+
+  Future<void> loadSchools() async {
+    isLoadingSchools = true;
+    notifyListeners();
+    try {
+      schools = await AuthApi.schools();
+    } on AuthError catch (e) {
+      error = e.message;
+    }
+    isLoadingSchools = false;
+    notifyListeners();
+  }
+
+  void selectSchool(String? id) {
+    selectedSchoolId = id;
+    notifyListeners();
+  }
+
   void toggleObscurePassword() {
     obscurePassword = !obscurePassword;
     notifyListeners();
@@ -16,6 +42,12 @@ class RegisterViewModel extends ChangeNotifier {
 
 
   Future<bool> register() async {
+    if (selectedSchoolId == null) {
+      error = 'Elige tu escuela.';
+      notifyListeners();
+      return false;
+    }
+
     isLoading = true;
     error = null;
     notifyListeners();
@@ -25,6 +57,7 @@ class RegisterViewModel extends ChangeNotifier {
         nameController.text.trim(),
         emailController.text.trim(),
         passwordController.text,
+        selectedSchoolId!,
       );
       return true;
     } on AuthError catch (e) {
