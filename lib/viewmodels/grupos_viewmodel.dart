@@ -1,18 +1,24 @@
 import 'package:flutter/foundation.dart';
 import '../models/group.dart';
 import '../services/group_service.dart';
+import '../services/grouping_analytics_service.dart';
+import '../services/auth_token_store.dart';
 
 class GruposViewModel extends ChangeNotifier {
   final String sectionTitle = 'Mis grupos';
   final String sectionSubtitle =
       'Un niño puede estar en un grupo de matemáticas y en otro de lectura.';
   final List<String> subjectLabels = const ['Matemáticas', 'Lectura'];
-  static const List<String> _subjectKeys = ['matematicas', 'lectura'];
+  static const List<String> subjectKeys = ['matematicas', 'lectura'];
 
   final GroupService _groupService;
+  final GroupingAnalyticsService analyticsService;
 
-  GruposViewModel({GroupService? groupService})
-      : _groupService = groupService ?? GroupService();
+  GruposViewModel({
+    GroupService? groupService,
+    GroupingAnalyticsService? analyticsService,
+  })  : _groupService = groupService ?? GroupService(),
+        analyticsService = analyticsService ?? GroupingAnalyticsService();
 
   List<Group> _groups = [];
   bool _loading = false;
@@ -24,10 +30,13 @@ class GruposViewModel extends ChangeNotifier {
   bool get loading => _loading;
   String? get error => _error;
 
-  String get currentSubjectKey => _subjectKeys[_selectedSubjectIndex];
+  String get currentSubjectKey => subjectKeys[_selectedSubjectIndex];
 
   List<Group> get currentGroups =>
       _groups.where((g) => g.subject == currentSubjectKey).toList();
+
+  int get totalStudentsInSubject =>
+      currentGroups.fold(0, (sum, g) => sum + g.childrenCount);
 
   int get pendingChildrenCount => 0;
 
@@ -61,6 +70,7 @@ class GruposViewModel extends ChangeNotifier {
   Future<bool> createGroupOnBackend({
     required String name,
     required String subject,
+    required GroupingMethod method,
     String? schoolId,
     String? teacherId,
   }) async {
@@ -73,6 +83,15 @@ class GruposViewModel extends ChangeNotifier {
       );
       final group = Group.fromJson(data);
       _groups.add(group);
+
+      await analyticsService.trackGroupingEvent(GroupingEvent(
+        subject: subject,
+        classSize: totalStudentsInSubject,
+        method: method,
+        teacherId: AuthTokenStore().uid ?? 'unknown',
+        timestamp: DateTime.now(),
+      ));
+
       notifyListeners();
       return true;
     } on ApiException catch (e) {

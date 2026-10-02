@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/grupos_viewmodel.dart';
 import '../widgets/create_group_card.dart';
+import '../widgets/create_group_dialog.dart';
 import '../widgets/empty_groups_state.dart';
 import '../widgets/group_card.dart';
 import '../widgets/pending_children_notice.dart';
@@ -11,6 +12,27 @@ class GruposView extends StatelessWidget {
   final GruposViewModel viewModel;
 
   const GruposView({super.key, required this.viewModel});
+
+  void _openCreateGroupDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => CreateGroupDialog(
+        initialSubject: viewModel.currentSubjectKey,
+        estimatedClassSize: viewModel.totalStudentsInSubject,
+        analyticsService: viewModel.analyticsService,
+        onConfirm: ({
+          required String name,
+          required String subject,
+          required method,
+        }) =>
+            viewModel.createGroupOnBackend(
+          name: name,
+          subject: subject,
+          method: method,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +82,7 @@ class GruposView extends StatelessWidget {
                 EmptyGroupsState(
                   subjectLabel:
                       viewModel.isMathSelected ? 'matemáticas' : 'lectura',
-                  onCreateGroup: () {},
+                  onCreateGroup: () => _openCreateGroupDialog(context),
                 )
               else ...[
                 for (final group in groups) ...[
@@ -69,7 +91,7 @@ class GruposView extends StatelessWidget {
                 ],
                 PendingChildrenNotice(count: viewModel.pendingChildrenCount),
                 const SizedBox(height: 8),
-                CreateGroupCard(onTap: () {}),
+                CreateGroupCard(onTap: () => _openCreateGroupDialog(context)),
               ],
             ],
           ),
