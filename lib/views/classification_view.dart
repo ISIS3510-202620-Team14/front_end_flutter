@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_theme.dart';
 import '../models/student.dart';
 import '../viewmodels/classification_viewmodel.dart';
@@ -6,33 +7,33 @@ import '../viewmodels/students_viewmodel.dart';
 import '../widgets/course_chips.dart';
 import '../widgets/section_label.dart';
 import '../widgets/student_card.dart';
- 
+
 class ClassificationView extends StatefulWidget {
   const ClassificationView({
     super.key,
     required this.title,
     required this.studentsViewModel,
   });
- 
+
   final String title;
   final StudentsViewModel studentsViewModel;
- 
+
   @override
   State<ClassificationView> createState() => _ClassificationViewState();
 }
- 
+
 class _ClassificationViewState extends State<ClassificationView> {
   late final ClassificationViewModel _viewModel = ClassificationViewModel(
     title: widget.title,
     studentsViewModel: widget.studentsViewModel,
   );
- 
+
   @override
   void dispose() {
     _viewModel.dispose();
     super.dispose();
   }
- 
+
   Widget _buildStudentCard(Student student) {
     return StudentCard(
       key: ValueKey(student.number),
@@ -47,10 +48,10 @@ class _ClassificationViewState extends State<ClassificationView> {
       onLevelSelected: (level) => _viewModel.setLevel(student.number, level),
     );
   }
- 
+
   Widget _buildGroup(String title, List<Student> students) {
     if (students.isEmpty) return const SizedBox.shrink();
- 
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -64,11 +65,11 @@ class _ClassificationViewState extends State<ClassificationView> {
       ],
     );
   }
- 
+
   Widget _buildOutOfSchoolGroup() {
     final students = _viewModel.studentsIn(ClassificationViewModel.withdrawn);
     if (students.isEmpty) return const SizedBox.shrink();
- 
+
     return Padding(
       padding: const EdgeInsets.only(top: 20),
       child: Container(
@@ -91,10 +92,10 @@ class _ClassificationViewState extends State<ClassificationView> {
                     child: Text(
                       'Fuera del colegio · ${students.length}',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.ink,
-                          ),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.ink,
+                      ),
                     ),
                   ),
                   Icon(
@@ -120,17 +121,22 @@ class _ClassificationViewState extends State<ClassificationView> {
       ),
     );
   }
- 
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
- 
+
     return Scaffold(
       backgroundColor: AppTheme.cream,
       body: SafeArea(
         child: ListenableBuilder(
           listenable: _viewModel,
           builder: (context, _) {
+            if (_viewModel.loading) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppTheme.red),
+              );
+            }
             return ListView(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
               children: [
@@ -151,14 +157,16 @@ class _ClassificationViewState extends State<ClassificationView> {
                           children: [
                             Text(
                               widget.title,
-                              style: textTheme.headlineLarge
-                                  ?.copyWith(fontSize: 24),
+                              style: textTheme.headlineLarge?.copyWith(
+                                fontSize: 24,
+                              ),
                             ),
                             Text(
                               '${_viewModel.activeCount} de '
                               '${_viewModel.totalCount} estudiantes activos',
-                              style: textTheme.bodyLarge
-                                  ?.copyWith(fontSize: 12),
+                              style: textTheme.bodyLarge?.copyWith(
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
@@ -186,4 +194,3 @@ class _ClassificationViewState extends State<ClassificationView> {
     );
   }
 }
- 

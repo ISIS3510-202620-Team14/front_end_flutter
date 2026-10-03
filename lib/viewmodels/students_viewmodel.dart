@@ -1,57 +1,66 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/student.dart';
- 
+import '../services/students_repository.dart';
+
 class StudentsViewModel extends ChangeNotifier {
-  //Temprary list while we build backend
-  List<Student> _students = const [
-    Student(number: 1, name: 'María López Quintero', grade: 'Grado 3'),
-    Student(number: 2, name: 'Juan Carlos Cruz', grade: 'Grado 3', sex: 'M'),
-    Student(number: 3, name: 'Juan Carlos Cruz', grade: 'Grado 4', sex: 'M'),
-    Student(number: 4, name: 'Lucía Restrepo', grade: 'Grado 4'),
-    Student(number: 5, name: 'Pedro Ramírez', grade: 'Grado 4', sex: 'M'),
-    Student(number: 6, name: 'Sofía Betancur', grade: 'Grado 5'),
-    Student(number: 7, name: 'Andrés Mejía', grade: 'Grado 4', sex: 'M'),
-    Student(number: 8, name: 'Valentina Ospina', grade: 'Grado 5'),
-  ];
- 
+  StudentsViewModel({StudentsRepository? repository})
+    : _service = repository ?? StudentsRepository() {
+    _load();
+  }
+
+  final StudentsRepository _service;
+
+  List<Student> _students = [];
+  bool _loading = true;
+  String? error;
+
   List<Student> get students => _students;
- 
+  bool get loading => _loading;
+
   int get totalCount => _students.length;
- 
+
   int get activeCount => _students.where((s) => !s.withdrawn).length;
- 
-  
+
   int evaluatedCount(String subject) => _students
       .where((s) => !s.withdrawn && s.levels.containsKey(subject))
       .length;
- 
-  void updateSex(int number, String sex) {
-    _update(number, (s) => s.copyWith(sex: sex));
-  }
- 
-  void updateAge(int number, String age) {
-    _update(number, (s) => s.copyWith(age: age));
-  }
- 
-  
-  void setLevel(int number, String subject, String level) {
-    _update(
-      number,
-      (s) => s.copyWith(
-        withdrawn: false,
-        levels: {...s.levels, subject: level},
-      ),
-    );
-  }
- 
-  
-  void withdraw(int number) {
-    _update(number, (s) => s.copyWith(withdrawn: true));
-  }
- 
 
-  int importStudents(List<({String name, String sex})> rows,
-      {required String grade}) {
+  Future<void> _load() async {
+    _loading = true;
+    notifyListeners();
+    try {
+      _students = await _service.fetchStudents();
+      error = null;
+    } catch (e) {
+      error = e.toString();
+    }
+    _loading = false;
+    notifyListeners();
+  }
+
+  Future<void> reload() => _load();
+
+  Future<void> updateSex(int number, String sex) async {
+    _replace(await _service.updateSex(_byNumber(number), sex));
+  }
+
+  Future<void> updateAge(int number, String age) async {
+    _replace(await _service.updateAge(_byNumber(number), age));
+  }
+
+  Future<void> setLevel(int number, String subject, String level) async {
+    _replace(await _service.setLevel(_byNumber(number), subject, level));
+  }
+
+  Future<void> withdraw(int number) async {
+    _replace(await _service.setWithdrawn(_byNumber(number), true));
+  }
+
+  int importStudents(
+    List<({String name, String sex})> rows, {
+    required String grade,
+  }) {
     final existing = _students.map((s) => s.name.toLowerCase()).toSet();
     var next = _students.isEmpty
         ? 1
@@ -60,7 +69,13 @@ class StudentsViewModel extends ChangeNotifier {
     final added = <Student>[
       for (final r in rows)
         if (existing.add(r.name.toLowerCase()))
-          Student(number: next++, name: r.name, grade: grade, sex: r.sex),
+          Student(
+            id: 'local-$next',
+            number: next++,
+            name: r.name,
+            grade: grade,
+            sex: r.sex,
+          ),
     ];
 
     if (added.isNotEmpty) {
@@ -70,9 +85,12 @@ class StudentsViewModel extends ChangeNotifier {
     return added.length;
   }
 
-  void _update(int number, Student Function(Student) change) {
+  Student _byNumber(int number) =>
+      _students.firstWhere((s) => s.number == number);
+
+  void _replace(Student updated) {
     _students = [
-      for (final s in _students) s.number == number ? change(s) : s,
+      for (final s in _students) s.number == updated.number ? updated : s,
     ];
     notifyListeners();
   }
