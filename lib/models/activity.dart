@@ -15,12 +15,12 @@ abstract class Activity {
 
   ActivitySource get source;
 
-
   Map<String, Object> toEventParams() => {
-        'activityId': id,
-        'subject': subject,
-        'source': source.name,
-      };
+    'activityId': id,
+    'title': title,
+    'subject': subject,
+    'source': source.name,
+  };
 }
 
 /// Taken from the shared activity library.
@@ -39,8 +39,10 @@ class LibraryActivity extends Activity {
   ActivitySource get source => ActivitySource.library;
 
   @override
-  Map<String, Object> toEventParams() =>
-      {...super.toEventParams(), 'templateId': templateId};
+  Map<String, Object> toEventParams() => {
+    ...super.toEventParams(),
+    'templateId': templateId,
+  };
 }
 
 /// Written by the teacher.
