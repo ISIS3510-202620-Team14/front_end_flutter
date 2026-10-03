@@ -1,4 +1,5 @@
 class Student {
+  final String id;
   final int number;
   final String name;
   final String grade;
@@ -6,8 +7,9 @@ class Student {
   final String age;
   final bool withdrawn;
   final Map<String, String> levels;
- 
+
   const Student({
+    required this.id,
     required this.number,
     required this.name,
     required this.grade,
@@ -16,7 +18,7 @@ class Student {
     this.withdrawn = false,
     this.levels = const {},
   });
- 
+
   Student copyWith({
     String? sex,
     String? age,
@@ -24,6 +26,7 @@ class Student {
     Map<String, String>? levels,
   }) {
     return Student(
+      id: id,
       number: number,
       name: name,
       grade: grade,
