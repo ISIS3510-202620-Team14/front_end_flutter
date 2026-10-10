@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/services/analytics_service/analytics_service.dart';
 import 'package:front_end_flutter/models/scanned_row/scanned_row.dart';
 import 'package:front_end_flutter/services/safe_notifier/safe_notifier.dart';
 
@@ -106,6 +107,10 @@ class StudentsViewModel extends SafeNotifier {
   }) async {
     final result = await _service.importStudents(rows, schoolId, grade);
     await reload();
+    await AnalyticsService.instance.log(AnalyticsEvents.studentsScanned, {
+      'detected': rows.length,
+      'imported': (result['created'] as List? ?? []).length,
+    });
     return result;
   }
 

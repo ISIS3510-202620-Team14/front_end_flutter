@@ -34,10 +34,6 @@ class _StudentsViewState extends State<StudentsView> {
       );
       final created = (result['created'] as List? ?? []).length;
       final skipped = (result['skipped'] as List? ?? []).length;
-      await AnalyticsService.instance.log(AnalyticsEvents.studentsScanned, {
-        'detected': rows.length,
-        'imported': created,
-      });
       _message =
           '$created estudiantes importados; $skipped códigos ya existentes.';
     } catch (error) {

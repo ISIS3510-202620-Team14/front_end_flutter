@@ -7,7 +7,11 @@ part 'create_group_dialog_state.dart';
 class CreateGroupDialog extends StatefulWidget {
   final String initialSubject;
   final int estimatedClassSize;
-  final GroupingAnalyticsService analyticsService;
+  final Future<GroupingRecommendation> Function({
+    required String subject,
+    required int classSize,
+  })
+  recommendationLoader;
   final Future<bool> Function({
     required String name,
     required String subject,
@@ -19,7 +23,7 @@ class CreateGroupDialog extends StatefulWidget {
     super.key,
     required this.initialSubject,
     required this.estimatedClassSize,
-    required this.analyticsService,
+    required this.recommendationLoader,
     required this.onConfirm,
   });
 

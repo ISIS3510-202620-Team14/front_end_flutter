@@ -38,7 +38,7 @@ class _SessionViewState extends State<SessionView> {
                     child: const Text('Reintentar'),
                   ),
                   TextButton(
-                    onPressed: AuthApi.logout,
+                    onPressed: _viewModel.logout,
                     child: const Text('Cerrar sesión'),
                   ),
                 ],
@@ -65,7 +65,7 @@ class _SessionViewState extends State<SessionView> {
                 children: [
                   Text(message),
                   TextButton(
-                    onPressed: AuthApi.logout,
+                    onPressed: _viewModel.logout,
                     child: const Text('Cerrar sesión'),
                   ),
                 ],

@@ -73,6 +73,13 @@ class GruposViewModel extends SafeNotifier {
     }).length;
   }
 
+  Future<GroupingRecommendation> recommend({
+    required String subject,
+    required int classSize,
+  }) async {
+    return analyticsService.recommend(subject: subject, classSize: classSize);
+  }
+
   void selectSubject(int index) {
     _selectedSubjectIndex = index;
     notifyListeners();

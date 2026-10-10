@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/services/auth_api/auth_api.dart';
 import 'package:front_end_flutter/models/user_profile/user_profile.dart';
 import 'package:front_end_flutter/services/profile_repository/profile_repository.dart';
 import 'package:front_end_flutter/services/schools_repository/schools_repository.dart';
@@ -40,6 +41,10 @@ class SessionViewModel extends SafeNotifier {
       loading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> logout() async {
+    await AuthApi.logout();
   }
 
   Future<void> saveName(String name) async {

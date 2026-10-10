@@ -65,7 +65,7 @@ class _ProfileViewState extends State<ProfileView> {
         ),
         if (_message != null) Text(_message!),
         TextButton(
-          onPressed: AuthApi.logout,
+          onPressed: widget.session.logout,
           child: const Text('Cerrar sesión'),
         ),
       ],

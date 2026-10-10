@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/viewmodels/students_viewmodel/students_viewmodel.dart';
-import 'package:front_end_flutter/services/analytics_service/analytics_service.dart';
 import 'package:front_end_flutter/views/scanner_view/scanner_view.dart';
 part 'students_view_state.dart';
 

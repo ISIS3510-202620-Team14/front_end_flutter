@@ -16,7 +16,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
 
   Future<void> _loadRecommendation() async {
     try {
-      final rec = await widget.analyticsService.recommend(
+      final rec = await widget.recommendationLoader(
         subject: widget.initialSubject,
         classSize: widget.estimatedClassSize,
       );

@@ -24,7 +24,7 @@ class GruposView extends StatelessWidget {
         return CreateGroupDialog(
           initialSubject: viewModel.currentSubjectKey,
           estimatedClassSize: viewModel.totalStudentsInSubject,
-          analyticsService: viewModel.analyticsService,
+          recommendationLoader: viewModel.recommend,
           onConfirm:
               ({
                 required String name,
