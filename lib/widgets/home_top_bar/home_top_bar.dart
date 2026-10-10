@@ -14,17 +14,31 @@ class HomeTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppTheme.ink,
+      decoration: const BoxDecoration(
+        color: AppTheme.cream,
+        border: Border(bottom: BorderSide(color: AppTheme.line)),
+      ),
       child: SafeArea(
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
           child: Row(
             children: [
-              Text(
-                'ENAd\nMóvil',
-                style: Theme.of(context).textTheme.headlineLarge
-                    ?.copyWith(fontSize: 18, height: 1.05, color: Colors.white),
+              Text.rich(
+                const TextSpan(
+                  text: 'ENAd\n',
+                  children: [
+                    TextSpan(
+                      text: 'Móvil',
+                      style: TextStyle(color: AppTheme.red),
+                    ),
+                  ],
+                ),
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  fontSize: 18,
+                  height: 1.05,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -36,23 +50,23 @@ class HomeTopBar extends StatelessWidget {
                         text: teacherName,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          color: AppTheme.ink,
                         ),
                       ),
                     ],
                   ),
                   style: Theme.of(context).textTheme.bodyLarge
-                      ?.copyWith(fontSize: 13, color: AppTheme.line),
+                      ?.copyWith(fontSize: 13, color: AppTheme.softInk),
                 ),
               ),
               const SizedBox(width: 12),
               OutlinedButton(
                 onPressed: onChangeUser,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.ink,
                   side: const BorderSide(color: AppTheme.line),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,

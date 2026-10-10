@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   static const cream = Color(0xFFFAF6F0);
@@ -20,44 +19,131 @@ class AppTheme {
   static const assessedText = Color(0xFF2E6B45);
 
   static ThemeData get theme {
+    final ColorScheme colors =
+        ColorScheme.fromSeed(
+          seedColor: red,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: red,
+          onPrimary: surface,
+          primaryContainer: const Color(0xFFF7E5DF),
+          onPrimaryContainer: darkRed,
+          secondary: green,
+          onSecondary: surface,
+          secondaryContainer: greenBackground,
+          onSecondaryContainer: assessedText,
+          tertiary: amber,
+          onTertiary: surface,
+          tertiaryContainer: amberBackground,
+          onTertiaryContainer: amberText,
+          surface: surface,
+          onSurface: ink,
+          onSurfaceVariant: softInk,
+          outline: softInk,
+          outlineVariant: line,
+          error: red,
+          onError: surface,
+          surfaceTint: Colors.transparent,
+        );
+    final TextTheme text = ThemeData.light().textTheme.apply(
+      fontFamily: 'Inter',
+      bodyColor: ink,
+      displayColor: ink,
+    );
+    final ButtonStyle primaryButton = ElevatedButton.styleFrom(
+      backgroundColor: red,
+      foregroundColor: surface,
+      disabledBackgroundColor: line,
+      disabledForegroundColor: softInk,
+      minimumSize: const Size(48, 48),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      textStyle: const TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+      ),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
+    );
+    final OutlineInputBorder fieldBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(6),
+      borderSide: const BorderSide(color: line),
+    );
     return ThemeData(
+      useMaterial3: true,
+      colorScheme: colors,
+      fontFamily: 'Inter',
       scaffoldBackgroundColor: cream,
-      textTheme: TextTheme(
-        headlineLarge: GoogleFonts.fraunces(
-          fontSize: 36,
-          fontWeight: FontWeight.w700,
-          color: ink,
-        ),
-        bodyLarge: GoogleFonts.inter(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          color: softInk,
-        ),
-        labelLarge: GoogleFonts.inter(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
+      textTheme: text.copyWith(
+        displayLarge: _heading(40),
+        displayMedium: _heading(36),
+        displaySmall: _heading(32),
+        headlineLarge: _heading(28.8),
+        headlineMedium: _heading(25.6),
+        headlineSmall: _heading(22),
+        titleLarge: _heading(19.2),
+        bodyLarge: text.bodyLarge?.copyWith(fontSize: 16, color: softInk),
+        bodyMedium: text.bodyMedium?.copyWith(fontSize: 14, height: 1.5),
+        labelLarge: text.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(style: primaryButton),
+      filledButtonTheme: FilledButtonThemeData(style: primaryButton),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: red),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: ink,
+          backgroundColor: surface,
+          minimumSize: const Size(48, 48),
+          side: const BorderSide(color: line),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
         ),
       ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style:
-            ElevatedButton.styleFrom(
-              backgroundColor: red,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(26),
-              ),
-            ).copyWith(
-              backgroundColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.pressed)) {
-                  return darkRed;
-                } else {
-                  return red;
-                }
-              }),
-            ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: surface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 16,
+        ),
+        border: fieldBorder,
+        enabledBorder: fieldBorder,
+        focusedBorder: fieldBorder.copyWith(
+          borderSide: const BorderSide(color: red, width: 2),
+        ),
+        labelStyle: const TextStyle(color: softInk),
+        floatingLabelStyle: const TextStyle(color: softInk),
       ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: red,
+        linearTrackColor: line,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: cream,
+        foregroundColor: ink,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      dividerTheme: const DividerThemeData(color: line),
+      cardTheme: CardThemeData(
+        color: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: const BorderSide(color: line),
+        ),
+      ),
+    );
+  }
+
+  static TextStyle _heading(double size) {
+    return TextStyle(
+      fontFamily: 'Fraunces',
+      fontSize: size,
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+      color: ink,
     );
   }
 }

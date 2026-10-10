@@ -26,12 +26,12 @@ class QuickActionCard extends StatelessWidget {
     }
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(color: AppTheme.line),
         ),
         child: Row(

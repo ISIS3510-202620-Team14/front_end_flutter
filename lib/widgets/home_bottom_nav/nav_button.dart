@@ -28,7 +28,7 @@ class _NavButton extends StatelessWidget {
     }
     final Color iconColor;
     if (selected) {
-      iconColor = Colors.white;
+      iconColor = AppTheme.red;
     } else {
       iconColor = AppTheme.ink;
     }

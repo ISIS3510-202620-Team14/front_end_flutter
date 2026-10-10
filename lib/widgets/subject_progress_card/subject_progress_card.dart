@@ -13,7 +13,7 @@ class SubjectProgressCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: AppTheme.line),
       ),
       child: Column(

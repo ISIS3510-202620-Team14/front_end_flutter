@@ -82,6 +82,7 @@ class _HorasViewState extends State<HorasView> {
               onPressed: selectDateAction,
               child: Text('Fecha: ${_viewModel.dateKey}'),
             ),
+            const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _viewModel.schoolId,
               decoration: const InputDecoration(labelText: 'Institución'),
@@ -94,6 +95,7 @@ class _HorasViewState extends State<HorasView> {
               ],
               onChanged: selectSchoolAction,
             ),
+            const SizedBox(height: 16),
             TextField(
               controller: _planned,
               keyboardType: const TextInputType.numberWithOptions(
@@ -101,6 +103,7 @@ class _HorasViewState extends State<HorasView> {
               ),
               decoration: const InputDecoration(labelText: 'Horas planeadas'),
             ),
+            const SizedBox(height: 16),
             TextField(
               controller: _worked,
               keyboardType: const TextInputType.numberWithOptions(
@@ -108,6 +111,7 @@ class _HorasViewState extends State<HorasView> {
               ),
               decoration: const InputDecoration(labelText: 'Horas realizadas'),
             ),
+            const SizedBox(height: 16),
             TextField(
               controller: _reason,
               maxLength: 500,
@@ -115,6 +119,7 @@ class _HorasViewState extends State<HorasView> {
                 labelText: 'Motivo de horas pendientes',
               ),
             ),
+            const SizedBox(height: 12),
             FilledButton(
               onPressed: submitAction,
               child: const Text('Enviar reporte'),
