@@ -1,30 +1,61 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:front_end_flutter/main.dart';
+import 'package:front_end_flutter/views/auth_gate/auth_gate.dart';
+import 'package:front_end_flutter/widgets/home_bottom_nav/home_bottom_nav.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets(
+    'restores and closes the session without initializing Firebase in tests',
+    (tester) async {
+      final sessions = StreamController<bool>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AuthGate(
+            sessionStream: sessions.stream,
+            signedInView: const Text('Sesión abierta'),
+            signedOutView: const Text('Iniciar sesión'),
+          ),
+        ),
+      );
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      sessions.add(false);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Iniciar sesión'), findsOneWidget);
+      sessions.add(true);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Sesión abierta'), findsOneWidget);
+      sessions.add(false);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Iniciar sesión'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      sessions.close();
+    },
+  );
+  testWidgets('each bottom navigation entry emits its own destination', (
+    tester,
+  ) async {
+    int selected = -1;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: HomeBottomNav(
+            currentIndex: 0,
+            onSelect: (index) {
+              selected = index;
+            },
+          ),
+        ),
+      ),
+    );
+    final labels = ['Hoy', 'Mi lista', 'Grupos', 'Horas', 'Mis datos'];
+    for (int index = 0; index < labels.length; index++) {
+      await tester.tap(find.text(labels[index]));
+      expect(selected, index);
+    }
   });
 }

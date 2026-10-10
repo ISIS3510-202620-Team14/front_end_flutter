@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Flutter Local Android" type="FlutterRunConfigurationType" factoryName="Flutter">
+    <option name="additionalArgs" value="--dart-define=USE_EMULATORS=true --dart-define=AUTH_EMULATOR_PORT=9199 --dart-define=FIRESTORE_EMULATOR_PORT=8180 --dart-define=API_BASE_URL=http://10.0.2.2:5101/enad-movil/us-central1" />
+    <option name="filePath" value="$PROJECT_DIR$/lib/main.dart" />
+    <method v="2" />
+  </configuration>
+</component>

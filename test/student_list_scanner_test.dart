@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:front_end_flutter/services/student_list_scanner.dart';
+import 'package:front_end_flutter/services/student_list_scanner/student_list_scanner.dart';
 
 void main() {
   test('parseNames limpia numeración, encabezados y duplicados', () {
