@@ -47,3 +47,9 @@ Para consultar la recarga y las pruebas de referencia: `python -m unittest disco
 
 
 Resultado Android: las dos pruebas integradas pasaron en emulator-5554 contra Auth 9199, Firestore 8180 y Functions 5101 aislados. La segunda inició un proceso nuevo y recuperó sesión, plan y comprobante sin volver a iniciar sesión. --no-uninstall conserva datos entre los dos ejecutables de prueba. No se realizaron escrituras de prueba en producción.
+
+## Ejecutar desde Android Studio
+
+Seleccionar el perfil compartido `Flutter Local Android` y el dispositivo Android. El perfil incluye USE_EMULATORS=true, AUTH_EMULATOR_PORT=9199, FIRESTORE_EMULATOR_PORT=8180 y API_BASE_URL=http://10.0.2.2:5101/enad-movil/us-central1. Pasar solamente USE_EMULATORS=true utiliza otros puertos y no conecta con este entorno.
+
+Cuando la APK compila pero ADB se bloquea en force-stop, install o uninstall, revisar el emulador antes de cambiar el código. En Medium_Phone, restaurar el snapshot de Quick Boot volvió a mostrar el reloj del día anterior y el bloqueo de instalación. Arrancar en frío permitió instalar y ejecutar. Usar Cold Boot Now desde Device Manager o arrancar con -no-snapshot-load; no es necesario borrar los datos del dispositivo.
