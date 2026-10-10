@@ -113,7 +113,8 @@ for page in pages:
         visual(page,'subject','slicer',847,300,390,160,{'Values':[('subject',False)]},'Materia')
     elif page=='bq11':
         visual(page,'ranking','clusteredBarChart',24,174,800,425,{'Category':[('title',False)],'Y':[('Frecuencia actividad',True)]},'Ranking de actividades')
-        visual(page,'details','tableEx',847,174,390,425,{'Values':[('title',False),('Frecuencia actividad',True),('Participacion actividad',True)]},'Frecuencia y participación')
+        visual(page,'subject','slicer',847,174,390,80,{'Values':[('subject',False)]},'Materia')
+        visual(page,'details','tableEx',847,274,390,325,{'Values':[('title',False),('subject',False),('Frecuencia actividad',True),('Participacion actividad',True)]},'Frecuencia y participación')
     else:
         visual(page,'status','card',24,86,880,68,{'Values':[('Estado agrupacion',True)]})
         visual(page,'methods','clusteredColumnChart',24,174,800,425,{'Category':[('method',False)],'Y':[('Agrupaciones',True)]},'Métodos observados')
