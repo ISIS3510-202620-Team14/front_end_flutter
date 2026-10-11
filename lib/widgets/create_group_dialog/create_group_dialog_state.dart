@@ -29,7 +29,8 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
           _selectedMethod = rec.recommended;
         }
       });
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Grouping recommendation was not loaded: $error');
       if (mounted) {
         setState(() {
           _nameError =
