@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:front_end_flutter/models/group/group.dart';
 import 'package:front_end_flutter/models/user_profile/user_profile.dart';
 import 'package:front_end_flutter/services/group_service/group_service.dart';
@@ -100,7 +101,7 @@ class GruposViewModel extends SafeNotifier {
         schoolId: schoolId ?? selectedSchoolId,
         teacherId: teacherId ?? profile.uid,
       );
-      _groups = data.map(Group.fromJson).toList();
+      _groups = data.map(_parseGroup).toList();
     } catch (error) {
       _error = error.toString();
     } finally {
@@ -131,7 +132,7 @@ class GruposViewModel extends SafeNotifier {
         schoolId: school,
         teacherId: profile.uid,
       );
-      _groups.add(Group.fromJson(data));
+      _groups.add(_parseGroup(data));
       // A telemetry failure must not pretend that the already saved group failed.
       try {
         await analyticsService.trackGroupingEvent(
@@ -143,7 +144,8 @@ class GruposViewModel extends SafeNotifier {
             timestamp: DateTime.now(),
           ),
         );
-      } catch (_) {
+      } catch (error) {
+        debugPrint('Grouping event was not recorded: $error');
         _error = 'Grupo guardado; no pudimos registrar la recomendación de agrupación.';
       }
       notifyListeners();
@@ -153,6 +155,16 @@ class GruposViewModel extends SafeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  // The list endpoint returns only the teacher id, so the signed-in teacher's
+  // own groups show their name instead of the raw uid.
+  Group _parseGroup(Map<String, dynamic> json) {
+    final isMine = json['teacherId'] == profile.uid;
+    return Group.fromJson(
+      json,
+      fallbackTeacherName: isMine ? profile.name : null,
+    );
   }
 
   Future<bool> deleteGroup(String id) async {

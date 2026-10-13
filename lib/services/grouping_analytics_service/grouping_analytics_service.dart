@@ -3,6 +3,7 @@ import 'package:front_end_flutter/services/api_client/api_client.dart';
 import 'package:front_end_flutter/services/analytics_service/analytics_service.dart';
 part 'grouping_event.dart';
 part 'grouping_recommendation.dart';
+part 'recommendation_strategy.dart';
 
 enum GroupingMethod { automatic, manual }
 
@@ -43,36 +44,19 @@ class GroupingAnalyticsService {
     List<GroupingEvent> events,
     int classSize,
   ) {
-    int tolerance = 8;
-    if (classSize <= 10) {
-      tolerance = 3;
-    } else if (classSize <= 25) {
-      tolerance = 5;
+    return chooseStrategy(events, classSize).recommend(events, classSize);
+  }
+
+  /// With no event from a similar class there is nothing to vote on, so the
+  /// default method is kept; otherwise the majority decides.
+  static RecommendationStrategy chooseStrategy(
+    List<GroupingEvent> events,
+    int classSize,
+  ) {
+    if (ClassSizeTolerance.similar(events, classSize).isEmpty) {
+      return const DefaultMethodStrategy();
     }
-    final similar = events.where((event) {
-      return (event.classSize - classSize).abs() <= tolerance;
-    }).toList();
-    if (similar.isEmpty) {
-      return const GroupingRecommendation(
-        recommended: GroupingMethod.automatic,
-        confidence: 0.5,
-        sampleSize: 0,
-      );
-    }
-    final automatic = similar.where((event) {
-      return event.method == GroupingMethod.automatic;
-    }).length;
-    GroupingMethod method = GroupingMethod.manual;
-    int majority = similar.length - automatic;
-    if (automatic >= majority) {
-      method = GroupingMethod.automatic;
-      majority = automatic;
-    }
-    return GroupingRecommendation(
-      recommended: method,
-      confidence: majority / similar.length,
-      sampleSize: similar.length,
-    );
+    return const MajorityVoteStrategy();
   }
 
   void dispose() {
