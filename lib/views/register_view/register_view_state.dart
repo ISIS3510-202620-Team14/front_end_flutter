@@ -1,7 +1,9 @@
 part of 'register_view.dart';
 
 class _RegisterViewState extends State<RegisterView> {
-  final _viewModel = RegisterViewModel();
+  late final RegisterViewModel _viewModel = RegisterViewModel(
+    schools: widget.schoolsRepository,
+  );
 
   @override
   void initState() {
@@ -17,8 +19,7 @@ class _RegisterViewState extends State<RegisterView> {
 
   Future<void> _submit() async {
     final creada = await _viewModel.register();
-    // Esta pantalla está encima del AuthGate: hay que cerrarla para
-    // que se vea la app con la sesión ya abierta.
+
     if (creada && mounted) {
       Navigator.of(context).pop();
     }
@@ -27,15 +28,15 @@ class _RegisterViewState extends State<RegisterView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.cream,
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        backgroundColor: AppTheme.cream,
+        backgroundColor: AppTheme.background,
         elevation: 0,
         foregroundColor: AppTheme.ink,
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: ListenableBuilder(
             listenable: _viewModel,
             builder: (context, _) {
@@ -49,8 +50,7 @@ class _RegisterViewState extends State<RegisterView> {
                 children: [
                   Text(
                     'Crear cuenta',
-                    style: Theme.of(context).textTheme.headlineLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
+                    style: Theme.of(context).textTheme.headlineLarge,
                   ),
                   const SizedBox(height: 32),
 

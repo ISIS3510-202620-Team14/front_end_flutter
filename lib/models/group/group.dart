@@ -30,8 +30,6 @@ class Group {
     return teacherName ?? teacherId;
   }
 
-  /// [fallbackTeacherName] fills the teacher name when the response has no
-  /// `teacher` object (the list endpoint returns only the teacher id).
   factory Group.fromJson(
     Map<String, dynamic> json, {
     String? fallbackTeacherName,

@@ -11,10 +11,10 @@ class _TemplateTile extends StatelessWidget {
     final text = Theme.of(context).textTheme;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.panelRadius),
         border: Border.all(color: AppTheme.line),
       ),
       child: Row(

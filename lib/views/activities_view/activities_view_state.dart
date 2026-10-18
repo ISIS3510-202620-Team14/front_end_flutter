@@ -1,7 +1,10 @@
 part of 'activities_view.dart';
 
 class _ActivitiesViewState extends State<ActivitiesView> {
-  late final _viewModel = ActivitiesViewModel(subjects: widget.subjects);
+  late final _viewModel = ActivitiesViewModel(
+    subjects: widget.subjects,
+    repository: widget.repository,
+  );
 
   @override
   void initState() {
@@ -15,103 +18,28 @@ class _ActivitiesViewState extends State<ActivitiesView> {
     super.dispose();
   }
 
-  Future<void> _openCustomDialog() async {
-    final titleController = TextEditingController();
-    final minutesController = TextEditingController();
-    String? error;
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: AppTheme.surface,
-              title: Text('Nueva actividad · ${_viewModel.selectedSubject}'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: titleController,
-                    autofocus: true,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(labelText: 'Nombre'),
-                  ),
-                  TextField(
-                    controller: minutesController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(labelText: 'Minutos'),
-                  ),
-                  if (error != null) ...[
-                    const SizedBox(height: 12),
-                    Text(error!, style: const TextStyle(color: AppTheme.red)),
-                  ],
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    return Navigator.of(context).pop();
-                  },
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: AppTheme.red),
-                  onPressed: () async {
-                    final result = await _viewModel.createCustom(
-                      titleController.text,
-                      int.tryParse(minutesController.text),
-                    );
-                    if (!context.mounted) {
-                      return;
-                    }
-                    if (result == null) {
-                      Navigator.of(context).pop();
-                    } else {
-                      setDialogState(() {
-                        error = result;
-                      });
-                    }
-                  },
-                  child: const Text('Crear'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    titleController.dispose();
-    minutesController.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: AppTheme.cream,
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        backgroundColor: AppTheme.cream,
+        backgroundColor: AppTheme.background,
         foregroundColor: AppTheme.ink,
         elevation: 0,
         title: Text('Actividades', style: text.headlineLarge),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTheme.red,
-        foregroundColor: Colors.white,
-        onPressed: _openCustomDialog,
-        icon: const Icon(Icons.edit_outlined),
-        label: const Text('Crear propia'),
       ),
       body: ListenableBuilder(
         listenable: _viewModel,
         builder: (context, _) {
           return ListView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 96),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
             children: [
+              const Text(
+                'Elige una actividad de la biblioteca para tu plan de hoy.',
+              ),
+              const SizedBox(height: 12),
               if (_viewModel.loading || _viewModel.saving)
                 const LinearProgressIndicator(),
               if (_viewModel.error != null) Text(_viewModel.error!),
@@ -130,15 +58,21 @@ class _ActivitiesViewState extends State<ActivitiesView> {
                       onSelected: (_) {
                         return _viewModel.selectSubject(s);
                       },
-                      selectedColor: AppTheme.red,
-                      showCheckmark: false,
-                      labelStyle: TextStyle(color: _subjectColor(s)),
                     ),
                 ],
               ),
               const SizedBox(height: 16),
               const SectionLabel('BIBLIOTECA'),
               const SizedBox(height: 10),
+              if (!_viewModel.loading &&
+                  _viewModel.catalogLoaded &&
+                  _viewModel.library.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'Todavía no hay actividades disponibles para esta materia.',
+                  ),
+                ),
               for (final t in _viewModel.library) ...[
                 _TemplateTile(
                   template: t,
@@ -176,14 +110,6 @@ class _ActivitiesViewState extends State<ActivitiesView> {
         },
       ),
     );
-  }
-
-  Color _subjectColor(String s) {
-    if (s == _viewModel.selectedSubject) {
-      return Colors.white;
-    } else {
-      return AppTheme.ink;
-    }
   }
 
   IconData _activityIcon(Activity a) {

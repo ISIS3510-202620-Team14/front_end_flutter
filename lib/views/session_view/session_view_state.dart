@@ -49,12 +49,19 @@ class _SessionViewState extends State<SessionView> {
         if (profile != null && profile.canTeach) {
           return HomeShell(key: ValueKey(profile.uid), session: _viewModel);
         }
+        if (profile != null &&
+            profile.active &&
+            profile.role.isNotEmpty &&
+            profile.role != 'docente') {
+          return PendingRoleView(
+            role: profile.role,
+            onLogout: _viewModel.logout,
+          );
+        }
         String message =
             'Tu cuenta necesita una institución y el rol docente. Contacta al administrador.';
         if (profile?.active == false) {
           message = 'Tu cuenta está desactivada. Contacta al administrador.';
-        } else if (profile?.role == 'admin') {
-          message = 'Los reportes administrativos se consultan en Power BI.';
         }
         return Scaffold(
           body: Center(

@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/theme/level_palette/level_palette.dart';
 import 'package:front_end_flutter/services/safe_notifier/safe_notifier.dart';
 import 'package:flutter/material.dart';
 
@@ -5,19 +6,16 @@ import 'package:front_end_flutter/models/level/level.dart';
 import 'package:front_end_flutter/models/student/student.dart';
 import 'package:front_end_flutter/viewmodels/students_viewmodel/students_viewmodel.dart';
 
-// The public parameter preserves the shared-viewmodel constructor contract.
 class ClassificationViewModel extends SafeNotifier {
   ClassificationViewModel({
     required this.title,
-    required StudentsViewModel studentsViewModel,
-    // Preserve the public dependency name used by existing screens.
-    // ignore: prefer_initializing_formals
-  }) : _studentsViewModel = studentsViewModel {
-    _studentsViewModel.addListener(notifyListeners);
+    required this.studentsViewModel,
+  }) {
+    studentsViewModel.addListener(notifyListeners);
   }
 
   final String title;
-  final StudentsViewModel _studentsViewModel;
+  final StudentsViewModel studentsViewModel;
 
   final List<String> courses = const ['Todos', 'Grado 3', 'Grado 4', 'Grado 5'];
 
@@ -28,22 +26,34 @@ class ClassificationViewModel extends SafeNotifier {
   );
 
   static const List<Level> readingLevels = [
-    Level(name: 'Principiante', color: Color(0xFF3D6FEF)),
-    Level(name: 'Letra', color: Color(0xFF45B8D6)),
-    Level(name: 'Palabra', color: Color(0xFF43A047)),
-    Level(name: 'Párrafo', color: Color(0xFFE08A3B)),
-    Level(name: 'Cuento', color: Color(0xFFD9553F)),
-    Level(name: 'Comprensión', color: Color(0xFF8E6FD6)),
+    Level(name: 'Principiante', color: LevelPalette.first),
+    Level(name: 'Letra', color: LevelPalette.second),
+    Level(name: 'Palabra', color: LevelPalette.third),
+    Level(name: 'Párrafo', color: LevelPalette.fourth),
+    Level(name: 'Cuento', color: LevelPalette.fifth),
+    Level(name: 'Comprensión', color: LevelPalette.sixth),
   ];
 
   static const List<Level> mathLevels = [
-    Level(name: 'Principiante', color: Color(0xFF3D6FEF)),
-    Level(name: '1 dígito', color: Color(0xFF45B8D6)),
-    Level(name: '2 dígitos', color: Color(0xFF43A047)),
-    Level(name: 'Resta', color: Color(0xFFE08A3B)),
-    Level(name: 'División', color: Color(0xFFD9553F)),
-    Level(name: 'Problema escrito', color: Color(0xFF8E6FD6)),
+    Level(name: 'Principiante', color: LevelPalette.first),
+    Level(name: '1 dígito', color: LevelPalette.second),
+    Level(name: '2 dígitos', color: LevelPalette.third),
+    Level(name: 'Resta', color: LevelPalette.fourth),
+    Level(name: 'División', color: LevelPalette.fifth),
+    Level(name: 'Problema escrito', color: LevelPalette.sixth),
   ];
+
+  String? evaluationType;
+  static const Map<String, String> evaluationMoments = {
+    'inicial': 'Línea Base',
+    'media': 'Línea Media',
+    'final': 'Línea Final',
+    'especifica': 'Evaluación específica',
+  };
+  void selectMoment(String? value) {
+    evaluationType = value;
+    notifyListeners();
+  }
 
   String _selectedCourse = 'Todos';
   int? _expandedNumber = 1;
@@ -65,21 +75,20 @@ class ClassificationViewModel extends SafeNotifier {
     }
   }
 
-  // The counters are for the entire class, they don't change with the grade chip.
   int get totalCount {
-    return _studentsViewModel.totalCount;
+    return studentsViewModel.totalCount;
   }
 
   int get activeCount {
-    return _studentsViewModel.activeCount;
+    return studentsViewModel.activeCount;
   }
 
   bool get loading {
-    return _studentsViewModel.loading || _studentsViewModel.updating;
+    return studentsViewModel.loading;
   }
 
   String? get error {
-    return _studentsViewModel.error;
+    return studentsViewModel.error;
   }
 
   bool get outOfSchoolExpanded {
@@ -88,15 +97,14 @@ class ClassificationViewModel extends SafeNotifier {
 
   List<Student> get _visibleStudents {
     if (_selectedCourse == 'Todos') {
-      return _studentsViewModel.students;
+      return studentsViewModel.students;
     } else {
-      return _studentsViewModel.students.where((s) {
+      return studentsViewModel.students.where((s) {
         return s.grade == _selectedCourse;
       }).toList();
     }
   }
 
-  // A withdrawn student is shown as 'Retirado' in both subjects.
   String? levelOf(Student student) {
     if (student.withdrawn) {
       return withdrawn;
@@ -143,24 +151,46 @@ class ClassificationViewModel extends SafeNotifier {
   }
 
   void updateSex(int number, String sex) {
-    _studentsViewModel.updateSex(number, sex);
+    studentsViewModel.updateSex(number, sex);
   }
 
   void updateAge(int number, String age) {
-    _studentsViewModel.updateAge(number, age);
+    studentsViewModel.updateAge(number, age);
   }
 
-  void setLevel(int number, String level) {
+  Future<void> setLevel(int number, String level) async {
     if (level == withdrawn) {
-      _studentsViewModel.withdraw(number);
+      await studentsViewModel.withdraw(number);
     } else {
-      _studentsViewModel.setLevel(number, title, level);
+      await studentsViewModel.setLevel(number, title, level);
     }
+  }
+
+  Future<void> evaluate(
+    int number,
+    String level,
+    String sex,
+    String age,
+    int sample,
+  ) async {
+    final String? moment = evaluationType;
+    if (moment == null) {
+      throw StateError('Selecciona el momento de evaluación.');
+    }
+    await studentsViewModel.evaluate(
+      number,
+      title,
+      level,
+      sex,
+      age,
+      evaluationType: moment,
+      sample: sample,
+    );
   }
 
   @override
   void dispose() {
-    _studentsViewModel.removeListener(notifyListeners);
+    studentsViewModel.removeListener(notifyListeners);
     super.dispose();
   }
 }

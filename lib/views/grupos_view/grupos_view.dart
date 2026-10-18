@@ -1,3 +1,5 @@
+import 'package:front_end_flutter/widgets/brand_heading/brand_heading.dart';
+import 'package:front_end_flutter/widgets/enad_panel/enad_panel.dart';
 import 'package:front_end_flutter/views/group_detail_view/group_detail_view.dart';
 import 'package:front_end_flutter/models/group/group.dart';
 import 'package:flutter/material.dart';
@@ -61,13 +63,23 @@ class GruposView extends StatelessWidget {
         final groups = viewModel.currentGroups;
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                viewModel.sectionTitle,
-                style: Theme.of(context).textTheme.headlineLarge,
+              Row(
+                children: [
+                  Expanded(child: BrandHeading(title: viewModel.sectionTitle)),
+                  IconButton(
+                    onPressed: () {
+                      if (!viewModel.loading) {
+                        viewModel.loadGroups();
+                      }
+                    },
+                    tooltip: 'Actualizar grupos',
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
               ),
               const SizedBox(height: 4),
               Text(
@@ -77,28 +89,38 @@ class GruposView extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              DropdownButtonFormField<String>(
-                initialValue: viewModel.selectedSchoolId,
-                decoration: const InputDecoration(labelText: 'Institución'),
-                items: [
-                  for (final school in schools)
-                    DropdownMenuItem(
-                      value: school['id'] as String,
-                      child: Text(school['name'] as String),
+              EnadPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: viewModel.selectedSchoolId,
+                      decoration: const InputDecoration(
+                        labelText: 'Institución',
+                      ),
+                      items: [
+                        for (final school in schools)
+                          DropdownMenuItem(
+                            value: school['id'] as String,
+                            child: Text(school['name'] as String),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          viewModel.selectSchool(value);
+                        }
+                      },
                     ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    viewModel.selectSchool(value);
-                  }
-                },
+                    const SizedBox(height: 16),
+                    SubjectTabBar(
+                      labels: viewModel.subjectLabels,
+                      selectedIndex: viewModel.selectedSubjectIndex,
+                      onChanged: viewModel.selectSubject,
+                    ),
+                  ],
+                ),
               ),
-              SubjectTabBar(
-                labels: viewModel.subjectLabels,
-                selectedIndex: viewModel.selectedSubjectIndex,
-                onChanged: viewModel.selectSubject,
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               if (viewModel.error != null)
                 _ErrorBanner(
@@ -134,7 +156,7 @@ class GruposView extends StatelessWidget {
                   const SizedBox(height: 12),
                 ],
                 PendingChildrenNotice(count: viewModel.pendingChildrenCount),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 CreateGroupCard(
                   onTap: () {
                     return _openCreateGroupDialog(context);

@@ -18,7 +18,7 @@ class EmptyGroupsState extends StatelessWidget {
     return Column(
       children: [
         const SizedBox(height: 24),
-        const Icon(Icons.groups_outlined, size: 40, color: AppTheme.softInk),
+        const Icon(Icons.groups_outlined, size: 40, color: AppTheme.red),
         const SizedBox(height: 12),
         Text(
           'Todavía no hay grupos de $subjectLabel',
@@ -30,7 +30,7 @@ class EmptyGroupsState extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Crea el primero cuando tengas niños para repartir.',
+          'Crea el primero cuando tengas estudiantes para repartir.',
           textAlign: TextAlign.center,
           style: textTheme.bodyLarge?.copyWith(fontSize: 13),
         ),
@@ -43,7 +43,7 @@ class EmptyGroupsState extends StatelessWidget {
               side: const BorderSide(color: AppTheme.line),
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(AppTheme.controlRadius),
               ),
             ),
             child: Text(

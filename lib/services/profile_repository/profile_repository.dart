@@ -22,7 +22,13 @@ class ProfileRepository {
     if (user == null) {
       throw const ApiException(401, 'Inicia sesión para continuar.');
     }
-    final doc = await _firestore.collection('users').doc(user.uid).get();
+
+    await user.getIdToken(true).timeout(const Duration(seconds: 20));
+    final doc = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .get()
+        .timeout(const Duration(seconds: 20));
     if (!doc.exists) {
       throw const ApiException(
         403,

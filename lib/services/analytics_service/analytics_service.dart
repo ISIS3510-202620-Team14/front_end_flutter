@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 part 'analytics_events.dart';
 
-/// data collection
 class AnalyticsService {
   AnalyticsService._();
   static final instance = AnalyticsService._();

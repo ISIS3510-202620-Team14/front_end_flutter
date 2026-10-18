@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/services/user_message/user_message.dart';
 import 'package:flutter/foundation.dart';
 import 'package:front_end_flutter/models/group/group.dart';
 import 'package:front_end_flutter/models/user_profile/user_profile.dart';
@@ -20,7 +21,7 @@ class GruposViewModel extends SafeNotifier {
   final GroupingAnalyticsService analyticsService;
   final String sectionTitle = 'Mis grupos';
   final String sectionSubtitle =
-      'Un niño puede estar en un grupo de matemáticas y en otro de lectura.';
+      'Un estudiante puede estar en un grupo de matemáticas y en otro de lectura.';
   final List<String> subjectLabels = const ['Matemáticas', 'Lectura'];
   static const List<String> subjectKeys = ['matematicas', 'lectura'];
   List<Group> _groups = [];
@@ -46,6 +47,10 @@ class GruposViewModel extends SafeNotifier {
 
   String get currentSubjectKey {
     return subjectKeys[_selectedSubjectIndex];
+  }
+
+  List<Group> get allGroups {
+    return List<Group>.unmodifiable(_groups);
   }
 
   List<Group> get currentGroups {
@@ -103,7 +108,7 @@ class GruposViewModel extends SafeNotifier {
       );
       _groups = data.map(_parseGroup).toList();
     } catch (error) {
-      _error = error.toString();
+      _error = UserMessage.from(error);
     } finally {
       _loading = false;
       notifyListeners();
@@ -133,7 +138,7 @@ class GruposViewModel extends SafeNotifier {
         teacherId: profile.uid,
       );
       _groups.add(_parseGroup(data));
-      // A telemetry failure must not pretend that the already saved group failed.
+
       try {
         await analyticsService.trackGroupingEvent(
           GroupingEvent(
@@ -151,20 +156,19 @@ class GruposViewModel extends SafeNotifier {
       notifyListeners();
       return true;
     } catch (error) {
-      _error = error.toString();
+      _error = UserMessage.from(error);
       notifyListeners();
       return false;
     }
   }
 
-  // The list endpoint returns only the teacher id, so the signed-in teacher's
-  // own groups show their name instead of the raw uid.
   Group _parseGroup(Map<String, dynamic> json) {
     final isMine = json['teacherId'] == profile.uid;
-    return Group.fromJson(
-      json,
-      fallbackTeacherName: isMine ? profile.name : null,
-    );
+    String? teacherName;
+    if (isMine) {
+      teacherName = profile.name;
+    }
+    return Group.fromJson(json, fallbackTeacherName: teacherName);
   }
 
   Future<bool> deleteGroup(String id) async {
@@ -173,7 +177,7 @@ class GruposViewModel extends SafeNotifier {
       await loadGroups();
       return true;
     } catch (error) {
-      _error = error.toString();
+      _error = UserMessage.from(error);
       notifyListeners();
       return false;
     }

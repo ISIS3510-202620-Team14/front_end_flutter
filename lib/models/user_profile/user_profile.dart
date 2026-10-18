@@ -6,6 +6,7 @@ class UserProfile {
     required this.role,
     required this.active,
     required this.schoolIds,
+    this.campusIds = const {},
   });
   final String uid;
   final String name;
@@ -13,6 +14,7 @@ class UserProfile {
   final String role;
   final bool active;
   final List<String> schoolIds;
+  final Map<String, List<String>> campusIds;
   bool get canTeach {
     return active && role == 'docente' && schoolIds.isNotEmpty;
   }
@@ -22,6 +24,13 @@ class UserProfile {
     if (ids.isEmpty && data['schoolId'] is String) {
       ids.add(data['schoolId'] as String);
     }
+    final Map<String, List<String>> campuses = {};
+    final Map<dynamic, dynamic> rawCampuses = data['campusIds'] as Map? ?? {};
+    for (final MapEntry<dynamic, dynamic> entry in rawCampuses.entries) {
+      if (entry.value is List) {
+        campuses[entry.key.toString()] = List<String>.from(entry.value as List);
+      }
+    }
     return UserProfile(
       uid: uid,
       name: data['fullName'] as String? ?? 'Docente',
@@ -29,6 +38,7 @@ class UserProfile {
       role: data['rol'] as String? ?? '',
       active: data['activo'] != false,
       schoolIds: List.unmodifiable(ids),
+      campusIds: Map.unmodifiable(campuses),
     );
   }
 }

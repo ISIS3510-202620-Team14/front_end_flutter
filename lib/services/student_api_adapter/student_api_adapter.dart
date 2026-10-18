@@ -1,6 +1,5 @@
 import 'package:front_end_flutter/models/student/student.dart';
 
-// Adapter: translates between the backend representation of students and the frontend domain model.
 class StudentApiAdapter {
   static const _materias = {
     'matematicas': [
@@ -71,9 +70,11 @@ class StudentApiAdapter {
       grade: 'Grado ${json['grade']}',
       sex: json['gender'] as String? ?? '',
       schoolId: json['schoolId'] as String? ?? '',
+      campus: json['campus'] as String? ?? '',
       code: json['code'] as String? ?? '',
       attendance: json['attendance'] as String? ?? 'sin_registro',
       age: json['age']?.toString() ?? '',
+      sample: json['sample'] as int?,
       withdrawn: json['retired'] as bool? ?? false,
       levels: levels,
     );

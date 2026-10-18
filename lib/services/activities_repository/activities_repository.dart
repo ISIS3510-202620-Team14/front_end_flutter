@@ -4,10 +4,18 @@ import 'package:front_end_flutter/models/activity/activity.dart';
 
 class ActivitiesRepository {
   ActivitiesRepository({FirebaseFirestore? firestore, FirebaseAuth? auth})
-    : _firestore = firestore ?? FirebaseFirestore.instance,
-      _auth = auth ?? FirebaseAuth.instance;
-  final FirebaseFirestore _firestore;
-  final FirebaseAuth _auth;
+    : _providedFirestore = firestore,
+      _providedAuth = auth;
+  final FirebaseFirestore? _providedFirestore;
+  final FirebaseAuth? _providedAuth;
+  FirebaseFirestore get _firestore {
+    return _providedFirestore ?? FirebaseFirestore.instance;
+  }
+
+  FirebaseAuth get _auth {
+    return _providedAuth ?? FirebaseAuth.instance;
+  }
+
   String _uid() {
     final user = _auth.currentUser;
     if (user == null) {
@@ -62,6 +70,9 @@ class ActivitiesRepository {
   }
 
   Future<void> save(Activity activity, DateTime date) async {
+    if (activity.source != ActivitySource.library) {
+      throw StateError('Solo puedes planear actividades de la biblioteca.');
+    }
     final uid = _uid();
     final action = _firestore
         .collection('users')

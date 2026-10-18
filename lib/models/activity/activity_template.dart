@@ -1,6 +1,5 @@
 part of 'activity.dart';
 
-/// Read-only entry of the activity library.
 class ActivityTemplate {
   const ActivityTemplate({
     required this.id,

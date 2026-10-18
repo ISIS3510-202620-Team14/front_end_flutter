@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:front_end_flutter/services/auth_api/auth_api.dart';
 
 class RegisterViewModel extends SafeNotifier {
+  RegisterViewModel({SchoolsRepository? schools})
+    : _schoolsRepository = schools ?? SchoolsRepository();
   final nameController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
-  final SchoolsRepository _schoolsRepository = SchoolsRepository();
+  final SchoolsRepository _schoolsRepository;
   List<Map<String, dynamic>> schools = [];
   final Map<String, Set<String>> selectedSchools = {};
   bool loadingSchools = true;

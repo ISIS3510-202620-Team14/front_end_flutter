@@ -59,7 +59,7 @@ class _ScanBox extends StatelessWidget {
       child: Container(
         height: boxHeight,
         decoration: BoxDecoration(
-          color: AppTheme.cream,
+          color: AppTheme.background,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppTheme.line),
         ),

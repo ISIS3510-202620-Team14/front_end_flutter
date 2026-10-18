@@ -6,6 +6,53 @@ class _ClassificationViewState extends State<ClassificationView> {
     studentsViewModel: widget.studentsViewModel,
   );
 
+  Future<void> _unexpected() async {
+    final List<Student> candidates = widget.studentsViewModel.students.where((
+      Student student,
+    ) {
+      return !student.withdrawn;
+    }).toList();
+    final String? id = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return UnexpectedStudentPicker(students: candidates);
+      },
+    );
+    if (!mounted || id == null) {
+      return;
+    }
+    if (id == 'new') {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) {
+            return StudentRosterView(
+              unexpected: true,
+              viewModel: widget.studentsViewModel,
+              schools: widget.schools,
+            );
+          },
+        ),
+      );
+      return;
+    }
+    for (final Student student in candidates) {
+      if (student.id == id) {
+        _viewModel.selectCourse(student.grade);
+        if (!_viewModel.isExpanded(student.number)) {
+          _viewModel.toggleExpanded(student.number);
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${student.name}: completa la ficha y guarda la evaluación.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+  }
+
   @override
   void dispose() {
     _viewModel.dispose();
@@ -14,18 +61,28 @@ class _ClassificationViewState extends State<ClassificationView> {
 
   Widget _buildStudentCard(Student student) {
     return StudentCard(
-      key: ValueKey(student.number),
+      key: ValueKey('${student.id}-${_viewModel.evaluationType}'),
       student: student,
+      onHistory: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (BuildContext context) {
+              return StudentProfileView(
+                schools: widget.schools,
+                student: student,
+                students: widget.studentsViewModel,
+              );
+            },
+          ),
+        );
+      },
       level: _viewModel.levelOf(student),
       expanded: _viewModel.isExpanded(student.number),
       onToggle: () {
         return _viewModel.toggleExpanded(student.number);
       },
-      onSexChanged: (sex) {
-        return _viewModel.updateSex(student.number, sex);
-      },
-      onAgeChanged: (age) {
-        return _viewModel.updateAge(student.number, age);
+      onEvaluate: (String level, String sex, String age, int sample) {
+        return _viewModel.evaluate(student.number, level, sex, age, sample);
       },
       levels: _viewModel.subjectLevels,
       withdrawnLevel: ClassificationViewModel.withdrawnLevel,
@@ -44,7 +101,17 @@ class _ClassificationViewState extends State<ClassificationView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 20),
-        SectionLabel('${title.toUpperCase()} · ${students.length}'),
+        Wrap(
+          spacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            LevelBadge(label: title),
+            Text(
+              '${students.length}',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
         for (final student in students) ...[
           _buildStudentCard(student),
@@ -76,10 +143,10 @@ class _ClassificationViewState extends State<ClassificationView> {
       padding: const EdgeInsets.only(top: 20),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(AppTheme.panelRadius),
           border: Border.all(color: AppTheme.line),
         ),
         child: Column(
@@ -92,7 +159,7 @@ class _ClassificationViewState extends State<ClassificationView> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Fuera del colegio · ${students.length}',
+                      'Retirados · ${students.length}',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -122,7 +189,7 @@ class _ClassificationViewState extends State<ClassificationView> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: AppTheme.cream,
+      backgroundColor: AppTheme.background,
       body: SafeArea(
         child: ListenableBuilder(
           listenable: _viewModel,
@@ -133,7 +200,7 @@ class _ClassificationViewState extends State<ClassificationView> {
               );
             }
             return ListView(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
               children: [
                 if (_viewModel.error != null)
                   Text(
@@ -157,18 +224,11 @@ class _ClassificationViewState extends State<ClassificationView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              widget.title,
-                              style: textTheme.headlineLarge?.copyWith(
-                                fontSize: 24,
-                              ),
-                            ),
+                            Text(widget.title, style: textTheme.headlineLarge),
                             Text(
                               '${_viewModel.activeCount} de '
                               '${_viewModel.totalCount} estudiantes activos',
-                              style: textTheme.bodyLarge?.copyWith(
-                                fontSize: 12,
-                              ),
+                              style: textTheme.bodyMedium,
                             ),
                           ],
                         ),
@@ -177,17 +237,66 @@ class _ClassificationViewState extends State<ClassificationView> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                const SectionLabel('CURSO DE ORIGEN'),
-                const SizedBox(height: 10),
-                CourseChips(
-                  courses: _viewModel.courses,
-                  selected: _viewModel.selectedCourse,
-                  onChanged: _viewModel.selectCourse,
+                EnadPanel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: _viewModel.evaluationType,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Momento de evaluación *',
+                          hintText: 'Selecciona el momento',
+                        ),
+                        items: [
+                          for (final MapEntry<String, String> moment
+                              in ClassificationViewModel
+                                  .evaluationMoments
+                                  .entries)
+                            DropdownMenuItem(
+                              value: moment.key,
+                              child: Text(moment.value),
+                            ),
+                        ],
+                        onChanged: _viewModel.selectMoment,
+                      ),
+                      const SizedBox(height: 20),
+                      if (widget.schools.isNotEmpty) ...[
+                        OutlinedButton.icon(
+                          onPressed: _unexpected,
+                          icon: const Icon(Icons.person_add_alt_outlined),
+                          label: const Text('Agregar estudiante a la sesión'),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      const SectionLabel('CURSO'),
+                      const SizedBox(height: 10),
+                      CourseChips(
+                        courses: _viewModel.courses,
+                        selected: _viewModel.selectedCourse,
+                        onChanged: _viewModel.selectCourse,
+                      ),
+                    ],
+                  ),
                 ),
-                _buildGroup('Sin evaluar', _viewModel.pendingStudents),
-                for (final level in _viewModel.subjectLevels)
-                  _buildGroup(level.name, _viewModel.studentsIn(level.name)),
-                _buildOutOfSchoolGroup(),
+                if (_viewModel.evaluationType == null)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Text(
+                      'Selecciona el momento antes de registrar una evaluación.',
+                    ),
+                  )
+                else ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Las fichas muestran el último nivel registrado. Los nuevos resultados se guardan en el momento seleccionado.',
+                    style: TextStyle(fontSize: 12, color: AppTheme.softInk),
+                  ),
+                  _buildGroup('Sin evaluar', _viewModel.pendingStudents),
+                  for (final level in _viewModel.subjectLevels)
+                    _buildGroup(level.name, _viewModel.studentsIn(level.name)),
+                  _buildOutOfSchoolGroup(),
+                ],
               ],
             );
           },

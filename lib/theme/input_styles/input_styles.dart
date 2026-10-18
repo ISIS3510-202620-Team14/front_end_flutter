@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:front_end_flutter/theme/app_theme/app_theme.dart';
 
-InputDecoration appInputDecoration(String label, {Widget? suffixIcon}) {
+InputDecoration appInputDecoration(
+  String label, {
+  Widget? suffixIcon,
+  bool floatingLabel = true,
+}) {
   return InputDecoration(
     labelText: label,
-    labelStyle: const TextStyle(color: AppTheme.softInk),
-    filled: true,
-    fillColor: AppTheme.surface,
-    border: _border(),
-    enabledBorder: _border(),
-    focusedBorder: _border(color: AppTheme.red),
+    floatingLabelBehavior: _floatingLabelBehavior(floatingLabel),
     suffixIcon: suffixIcon,
   );
 }
 
-OutlineInputBorder _border({Color color = AppTheme.line}) {
-  return OutlineInputBorder(
-    borderRadius: BorderRadius.circular(12),
-    borderSide: BorderSide(color: color),
-  );
+FloatingLabelBehavior _floatingLabelBehavior(bool enabled) {
+  if (enabled) {
+    return FloatingLabelBehavior.auto;
+  } else {
+    return FloatingLabelBehavior.never;
+  }
 }

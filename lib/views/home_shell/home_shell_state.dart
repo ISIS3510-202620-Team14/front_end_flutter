@@ -4,6 +4,9 @@ class _HomeShellState extends State<HomeShell> {
   late final HomeViewModel _viewModel;
   late final GruposViewModel _gruposViewModel;
   int _currentIndex = 0;
+  int _attendancePending = 0;
+  int _currentAttendancePending = 0;
+  bool _confirmingExit = false;
   @override
   void initState() {
     super.initState();
@@ -22,7 +25,40 @@ class _HomeShellState extends State<HomeShell> {
     super.dispose();
   }
 
-  void _select(int index) {
+  Future<void> _select(int index) async {
+    if (index == _currentIndex || _confirmingExit) {
+      return;
+    }
+    if (_currentIndex == 1 && _currentAttendancePending > 0) {
+      _confirmingExit = true;
+      final bool? leave = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return AlertDialog(
+            title: const Text('¿Salir sin guardar?'),
+            content: const Text('La asistencia quedará pendiente de envío.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(true);
+                },
+                child: const Text('Salir sin guardar'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(false);
+                },
+                child: const Text('Continuar registrando'),
+              ),
+            ],
+          );
+        },
+      );
+      _confirmingExit = false;
+      if (!mounted || leave != true) {
+        return;
+      }
+    }
     setState(() {
       _currentIndex = index;
     });
@@ -31,12 +67,12 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.cream,
+      backgroundColor: AppTheme.background,
       body: Column(
         children: [
           HomeTopBar(
             teacherName: widget.session.profile!.name,
-            onChangeUser: _viewModel.changeUser,
+            onChangeUser: widget.session.logout,
           ),
           Expanded(
             child: IndexedStack(
@@ -44,6 +80,7 @@ class _HomeShellState extends State<HomeShell> {
               children: [
                 HoyView(
                   viewModel: _viewModel,
+                  schools: widget.session.schools,
                   onStudents: () {
                     _select(1);
                   },
@@ -52,7 +89,19 @@ class _HomeShellState extends State<HomeShell> {
                   },
                 ),
                 StudentsView(
+                  onCurrentPendingChanged: (int count) {
+                    _currentAttendancePending = count;
+                  },
+                  onPendingChanged: (int count) {
+                    if (mounted && count != _attendancePending) {
+                      setState(() {
+                        _attendancePending = count;
+                      });
+                    }
+                  },
+                  userId: widget.session.profile!.uid,
                   viewModel: _viewModel.studentsViewModel,
+                  groups: _gruposViewModel,
                   schools: widget.session.schools,
                 ),
                 GruposView(
@@ -60,13 +109,20 @@ class _HomeShellState extends State<HomeShell> {
                   schools: widget.session.schools,
                 ),
                 HorasView(schools: widget.session.schools),
-                ProfileView(session: widget.session),
+                ProfileView(
+                  session: widget.session,
+                  groups: _gruposViewModel,
+                  onAttendance: () {
+                    _select(1);
+                  },
+                ),
               ],
             ),
           ),
         ],
       ),
       bottomNavigationBar: HomeBottomNav(
+        pendingCount: _attendancePending,
         currentIndex: _currentIndex,
         onSelect: _select,
       ),

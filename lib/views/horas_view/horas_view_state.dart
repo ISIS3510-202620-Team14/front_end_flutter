@@ -1,23 +1,41 @@
 part of 'horas_view.dart';
 
 class _HorasViewState extends State<HorasView> {
-  final HorasViewModel _viewModel = HorasViewModel();
+  late final HorasViewModel _viewModel = HorasViewModel(
+    repository: widget.repository,
+  );
   final TextEditingController _planned = TextEditingController();
   final TextEditingController _worked = TextEditingController();
   final TextEditingController _reason = TextEditingController();
+  String? _reasonCategory;
+  String? _reasonError;
   @override
   void initState() {
     super.initState();
-    _viewModel.schoolId = widget.schools.first['id'] as String;
+    if (widget.schools.isNotEmpty) {
+      _viewModel.schoolId = widget.schools.first['id'] as String;
+    }
     _viewModel.addListener(_sync);
     _viewModel.selectDate(_viewModel.date);
   }
 
   void _sync() {
     if (!_viewModel.busy && _viewModel.message == null) {
-      _planned.text = _viewModel.planned.toString();
-      _worked.text = _viewModel.worked.toString();
-      _reason.text = _viewModel.reason;
+      final bool exists = _viewModel.weekReceipts.any((
+        Map<String, dynamic> receipt,
+      ) {
+        return receipt['date'] == _viewModel.dateKey;
+      });
+      _planned.text = '';
+      _worked.text = '';
+      if (exists) {
+        _planned.text = _viewModel.planned.toString();
+        _worked.text = _viewModel.worked.toString();
+      }
+      final HoursReason saved = HoursReason.fromStored(_viewModel.reason);
+      _reasonCategory = saved.category;
+      _reason.text = saved.detail;
+      _reasonError = null;
     }
   }
 
@@ -36,18 +54,129 @@ class _HorasViewState extends State<HorasView> {
     final value = await showDatePicker(
       context: context,
       initialDate: _viewModel.date,
-      firstDate: DateTime(2020),
+      firstDate: DateTime(today.year),
       lastDate: today,
     );
-    if (value != null) {
+    if (value != null && mounted) {
       await _viewModel.selectDate(value);
     }
+  }
+
+  bool get _needsReason {
+    final double? planned = double.tryParse(_planned.text.replaceAll(',', '.'));
+    final double? worked = double.tryParse(_worked.text.replaceAll(',', '.'));
+    if (planned == null || worked == null) {
+      return false;
+    }
+    return worked < planned;
+  }
+
+  bool get _canSubmit {
+    if (_viewModel.busy ||
+        _viewModel.schoolId == null ||
+        _viewModel.schoolId!.trim().isEmpty) {
+      return false;
+    }
+    final double? planned = double.tryParse(_planned.text.replaceAll(',', '.'));
+    final double? worked = double.tryParse(_worked.text.replaceAll(',', '.'));
+    if (planned == null ||
+        worked == null ||
+        !planned.isFinite ||
+        !worked.isFinite ||
+        planned < 0 ||
+        planned > 24 ||
+        worked < 0 ||
+        worked > 24 ||
+        (planned == 0 && worked == 0)) {
+      return false;
+    }
+    if (worked < planned) {
+      return HoursReason(
+            category: _reasonCategory,
+            detail: _reason.text,
+          ).error ==
+          null;
+    }
+    return true;
+  }
+
+  Future<void> _submit() async {
+    if (!_canSubmit) {
+      return;
+    }
+    String reason = '';
+    if (_needsReason) {
+      final HoursReason selected = HoursReason(
+        category: _reasonCategory,
+        detail: _reason.text,
+      );
+      if (selected.error != null) {
+        setState(() {
+          _reasonError = selected.error;
+        });
+        return;
+      }
+      reason = selected.stored;
+    }
+    final bool exists = _viewModel.weekReceipts.any((
+      Map<String, dynamic> receipt,
+    ) {
+      return receipt['date'] == _viewModel.dateKey;
+    });
+    if (exists) {
+      final bool? replace = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('¿Actualizar las horas de este día?'),
+            content: Text('Guardar reemplazará el reporte anterior.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context, false);
+                },
+                child: const Text('Revisar'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context, true);
+                },
+                child: const Text('Guardar'),
+              ),
+            ],
+          );
+        },
+      );
+      if (replace != true || !mounted) {
+        return;
+      }
+    }
+    await _viewModel.submitReport(_planned.text, _worked.text, reason);
+  }
+
+  ValueChanged<String?>? _selectReasonAction() {
+    if (_viewModel.busy) {
+      return null;
+    }
+    return (String? category) {
+      setState(() {
+        _reasonCategory = category;
+        _reasonError = null;
+      });
+    };
+  }
+
+  String _detailLabel() {
+    if (_reasonCategory == 'Otro') {
+      return 'Explica el motivo';
+    }
+    return 'Detalle (opcional)';
   }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _viewModel,
+      listenable: Listenable.merge([_viewModel, _planned, _worked, _reason]),
       builder: (context, child) {
         final Future<void> Function()? selectDateAction;
         if (_viewModel.busy) {
@@ -60,75 +189,166 @@ class _HorasViewState extends State<HorasView> {
           selectSchoolAction = null;
         } else {
           selectSchoolAction = (value) {
-            _viewModel.schoolId = value;
+            setState(() {
+              _viewModel.schoolId = value;
+            });
           };
         }
         final void Function()? submitAction;
-        if (_viewModel.busy) {
+        if (!_canSubmit) {
           submitAction = null;
         } else {
           submitAction = () {
-            _viewModel.submitReport(_planned.text, _worked.text, _reason.text);
+            _submit();
           };
         }
+        final DateTime today = DateTime.now().toUtc().subtract(
+          const Duration(hours: 5),
+        );
+        ValueChanged<DateTime>? selectDay;
+        if (!_viewModel.busy) {
+          selectDay = _viewModel.selectDate;
+        }
         return ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
-            Text(
-              'Horas diarias',
-              style: Theme.of(context).textTheme.headlineLarge,
-            ),
-            TextButton(
-              onPressed: selectDateAction,
-              child: Text('Fecha: ${_viewModel.dateKey}'),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _viewModel.schoolId,
-              decoration: const InputDecoration(labelText: 'Institución'),
-              items: [
-                for (final school in widget.schools)
-                  DropdownMenuItem(
-                    value: school['id'] as String,
-                    child: Text(school['name'] as String),
+            const BrandHeading(title: 'Reportar horas'),
+            const SizedBox(height: 24),
+            EnadPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _viewModel.weekLabel,
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-              ],
-              onChanged: selectSchoolAction,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _planned,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(labelText: 'Horas planeadas'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _worked,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(labelText: 'Horas realizadas'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _reason,
-              maxLength: 500,
-              decoration: const InputDecoration(
-                labelText: 'Motivo de horas pendientes',
+                  TextButton.icon(
+                    onPressed: selectDateAction,
+                    icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                    label: const Text('Cambiar semana'),
+                  ),
+                  WeekDaySelector(
+                    selected: _viewModel.date,
+                    lastDate: today,
+                    onChanged: selectDay,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: submitAction,
-              child: const Text('Enviar reporte'),
-            ),
-            if (_viewModel.busy) const LinearProgressIndicator(),
-            if (_viewModel.message != null) Text(_viewModel.message!),
             const SizedBox(height: 16),
-            const Text(
-              'Se muestran los reportes que enviaste desde esta aplicación. Otros registros pueden no aparecer.',
+            EnadPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.schools.length > 1)
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(_viewModel.schoolId),
+                      initialValue: _viewModel.schoolId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Institución',
+                      ),
+                      items: [
+                        for (final Map<String, dynamic> school
+                            in widget.schools)
+                          DropdownMenuItem(
+                            value: school['id'] as String,
+                            child: Text(
+                              school['name'] as String,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: selectSchoolAction,
+                    ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _planned,
+                    enabled: !_viewModel.busy,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Programadas',
+                      suffixText: 'h',
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _worked,
+                    enabled: !_viewModel.busy,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Realizadas',
+                      suffixText: 'h',
+                    ),
+                  ),
+                  if (_needsReason) ...[
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(
+                        'reason-${_viewModel.dateKey}-$_reasonCategory',
+                      ),
+                      initialValue: _reasonCategory,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Motivo'),
+                      items: [
+                        for (final String category in HoursReason.categories)
+                          DropdownMenuItem(
+                            value: category,
+                            child: Text(category),
+                          ),
+                      ],
+                      onChanged: _selectReasonAction(),
+                    ),
+                    if (_reasonCategory != null) ...[
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _reason,
+                        enabled: !_viewModel.busy,
+                        minLines: 2,
+                        maxLines: 4,
+                        maxLength: 480,
+                        decoration: InputDecoration(
+                          labelText: _detailLabel(),
+                          counterText: '',
+                        ),
+                        onChanged: (String value) {
+                          if (_reasonError != null) {
+                            setState(() {
+                              _reasonError = null;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                    if (_reasonError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          _reasonError!,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: submitAction,
+                      child: const Text('Guardar'),
+                    ),
+                  ),
+                  if (_viewModel.busy) const LinearProgressIndicator(),
+                  if (_viewModel.message != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(_viewModel.message!),
+                    ),
+                ],
+              ),
             ),
           ],
         );

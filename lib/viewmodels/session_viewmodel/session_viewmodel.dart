@@ -20,6 +20,10 @@ class SessionViewModel extends SafeNotifier {
     notifyListeners();
     try {
       profile = await _profiles.load();
+      if (profile!.role != 'docente') {
+        schools = [];
+        return;
+      }
       final available = await _schools.load();
       schools = available.where((school) {
         return profile!.schoolIds.contains(school['id']);

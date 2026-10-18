@@ -13,7 +13,7 @@ class SubjectProgressCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(AppTheme.panelRadius),
         border: Border.all(color: AppTheme.line),
       ),
       child: Column(
@@ -22,18 +22,16 @@ class SubjectProgressCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                data.title,
-                style: Theme.of(context).textTheme.headlineLarge
-                    ?.copyWith(fontSize: 20),
+              Expanded(
+                child: Text(
+                  data.title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
+              const SizedBox(width: 12),
               Text(
                 '${data.percent}%',
-                style: const TextStyle(
-                  color: AppTheme.red,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 22,
-                ),
+                style: Theme.of(context).textTheme.titleLarge,
               ),
             ],
           ),
@@ -44,14 +42,24 @@ class SubjectProgressCard extends StatelessWidget {
               value: data.percent / 100,
               minHeight: 6,
               backgroundColor: AppTheme.line,
-              valueColor: const AlwaysStoppedAnimation(AppTheme.red),
             ),
           ),
           const SizedBox(height: 10),
           Text(
             '${data.evaluated} de ${data.total} estudiantes evaluados',
-            style: Theme.of(context).textTheme.bodyLarge
-                ?.copyWith(fontSize: 13),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Ver estudiantes',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              const Icon(Icons.arrow_forward, size: 20),
+            ],
           ),
         ],
       ),

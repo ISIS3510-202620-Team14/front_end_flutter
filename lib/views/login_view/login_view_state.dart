@@ -22,7 +22,7 @@ class _LoginViewState extends State<LoginView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.cream,
+      backgroundColor: AppTheme.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -38,10 +38,11 @@ class _LoginViewState extends State<LoginView> {
               return ListView(
                 children: [
                   const SizedBox(height: 60),
-                  Text(
-                    'ENAd Móvil',
-                    style: Theme.of(context).textTheme.headlineLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
+                  Image.asset(
+                    'assets/branding/enad_logo.png',
+                    height: 90,
+                    fit: BoxFit.contain,
+                    semanticLabel: 'ENAd, Enseñar al nivel adecuado',
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -54,7 +55,10 @@ class _LoginViewState extends State<LoginView> {
                     controller: _viewModel.emailController,
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
-                    decoration: appInputDecoration('Correo'),
+                    decoration: appInputDecoration(
+                      'Usuario (correo)',
+                      floatingLabel: false,
+                    ),
                   ),
                   const SizedBox(height: 16),
 
@@ -63,6 +67,7 @@ class _LoginViewState extends State<LoginView> {
                     obscureText: _viewModel.obscurePassword,
                     decoration: appInputDecoration(
                       'Contraseña',
+                      floatingLabel: false,
                       suffixIcon: IconButton(
                         icon: Icon(
                           passwordVisibilityIcon,

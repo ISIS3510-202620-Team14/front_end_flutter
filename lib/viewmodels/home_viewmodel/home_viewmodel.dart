@@ -15,7 +15,7 @@ class HomeViewModel extends SafeNotifier {
     return profile.name;
   }
 
-  final String sectionTitle = 'Educación formativa';
+  final String sectionTitle = 'Hoy';
   static const List<String> subjectTitles = ['Lectura', 'Matemáticas'];
   List<SubjectProgress> get subjects {
     return [for (final title in subjectTitles) _progressOf(title)];

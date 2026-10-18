@@ -84,29 +84,67 @@ class _GroupDetailViewState extends State<GroupDetailView> {
             };
           }
           return ListView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             children: [
-              TextField(
-                controller: _name,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre del grupo',
+              EnadPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: _name,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre del grupo',
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: renameAction,
+                      child: const Text('Guardar nombre'),
+                    ),
+                  ],
                 ),
               ),
-              FilledButton(
-                onPressed: renameAction,
-                child: const Text('Guardar nombre'),
-              ),
+              const SizedBox(height: 24),
               if (_viewModel.busy) const LinearProgressIndicator(),
               if (_viewModel.error != null) Text(_viewModel.error!),
-              const Text('Integrantes'),
+              Text(
+                'Integrantes',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
               for (final student in widget.groups.students.students)
                 if (!student.withdrawn &&
                     student.schoolId == widget.group.schoolId)
-                  CheckboxListTile(
-                    title: Text(student.name),
-                    subtitle: Text(student.grade),
-                    value: _viewModel.group.studentIds.contains(student.id),
-                    onChanged: _membershipAction(student.id),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: EnadPanel(
+                      child: CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(student.name),
+                        secondary: IconButton(
+                          tooltip: 'Editar evaluación',
+                          onPressed: () {
+                            _editStudent(student);
+                          },
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                        subtitle: Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(student.grade),
+                            LevelBadge(
+                              label:
+                                  student.levels[_subjectLabel()] ??
+                                  'Sin evaluar',
+                            ),
+                          ],
+                        ),
+                        value: _viewModel.group.studentIds.contains(student.id),
+                        onChanged: _membershipAction(student.id),
+                      ),
+                    ),
                   ),
               TextButton(
                 onPressed: deleteAction,
@@ -126,5 +164,123 @@ class _GroupDetailViewState extends State<GroupDetailView> {
     return (bool? value) {
       _viewModel.membership(studentId, value == true);
     };
+  }
+
+  Future<void> _editStudent(Student student) async {
+    String? evaluationType;
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        final String subject = _subjectLabel();
+        final List<Level> levels;
+        if (subject == 'Matemáticas') {
+          levels = ClassificationViewModel.mathLevels;
+        } else {
+          levels = ClassificationViewModel.readingLevels;
+        }
+        return AlertDialog(
+          title: const Text('Evaluación del estudiante'),
+          content: StatefulBuilder(
+            builder: (BuildContext context, StateSetter updateDialog) {
+              return SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: ListenableBuilder(
+                    listenable: widget.groups.students,
+                    builder: (BuildContext context, Widget? child) {
+                      final Student current = widget.groups.students.students
+                          .firstWhere((Student value) {
+                            return value.id == student.id;
+                          });
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          DropdownButtonFormField<String>(
+                            initialValue: evaluationType,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Momento de evaluación',
+                            ),
+                            items: [
+                              for (final MapEntry<String, String> moment
+                                  in ClassificationViewModel
+                                      .evaluationMoments
+                                      .entries)
+                                DropdownMenuItem(
+                                  value: moment.key,
+                                  child: Text(moment.value),
+                                ),
+                            ],
+                            onChanged: (String? value) {
+                              updateDialog(() {
+                                evaluationType = value;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          if (evaluationType == null)
+                            const Text(
+                              'Selecciona el momento para evaluar al estudiante.',
+                            )
+                          else
+                            StudentCard(
+                              key: ValueKey('${student.id}-$evaluationType'),
+                              student: current,
+                              level: current.levels[subject],
+                              expanded: true,
+                              onToggle: () {},
+                              levels: levels,
+                              withdrawnLevel:
+                                  ClassificationViewModel.withdrawnLevel,
+                              onEvaluate:
+                                  (
+                                    String level,
+                                    String sex,
+                                    String age,
+                                    int sample,
+                                  ) async {
+                                    await widget.groups.students.evaluate(
+                                      current.number,
+                                      subject,
+                                      level,
+                                      sex,
+                                      age,
+                                      sample: sample,
+                                      evaluationType: evaluationType!,
+                                    );
+                                  },
+                              onLevelSelected: (String level) async {
+                                await widget.groups.students.withdraw(
+                                  current.number,
+                                );
+                              },
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _subjectLabel() {
+    if (_viewModel.group.subject == 'matematicas') {
+      return 'Matemáticas';
+    } else {
+      return 'Lectura';
+    }
   }
 }

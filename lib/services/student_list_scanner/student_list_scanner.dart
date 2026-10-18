@@ -2,14 +2,11 @@ import 'package:front_end_flutter/models/scanned_row/scanned_row.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 
-/// Takes a photo of a class list with the camera and reads the names with
-/// on-device OCR (ML Kit). Nothing leaves the phone.
 class StudentListScanner {
   StudentListScanner({ImagePicker? picker}) : _picker = picker ?? ImagePicker();
 
   final ImagePicker _picker;
 
-  /// Returns null if the teacher closes the camera without taking a photo.
   Future<List<ScannedRow>?> scan() async {
     final photo = await _picker.pickImage(
       source: ImageSource.camera,
@@ -26,7 +23,6 @@ class StudentListScanner {
         InputImage.fromFilePath(photo.path),
       );
 
-      // ML Kit does not guarantee reading order: sort lines top to bottom.
       final lines = [for (final block in result.blocks) ...block.lines]
         ..sort((a, b) {
           return a.boundingBox.top.compareTo(b.boundingBox.top);
@@ -45,8 +41,6 @@ class StudentListScanner {
   static List<ScannedRow> parseRows(Iterable<String> lines) {
     final rows = <ScannedRow>[];
     for (final line in lines) {
-      // Only an explicit code label or a multi-digit identifier is a code;
-      // a printed row number must never become the student's identity.
       final match = RegExp(
         r'(?:c[oó]d(?:igo)?\s*[:#]?\s*([A-Za-z0-9-]+)|\b(\d{4,})\b)',
         caseSensitive: false,
@@ -85,17 +79,13 @@ class StudentListScanner {
     'sede',
   };
 
-  /// Turns raw OCR lines into clean "Nombre Apellido" entries.
-  /// Public and pure so it can be unit-tested without a camera.
   static List<String> parseNames(Iterable<String> lines) {
     final seen = <String>{};
     final names = <String>[];
 
     for (final raw in lines) {
       final cleaned = raw
-          // Leading numbering: "1.", "02)", "3 -"
           .replaceFirst(RegExp(r'^\s*\d+\s*[\.\)\-:]?\s*'), '')
-          // Keep letters (with accents), spaces, apostrophes and hyphens.
           .replaceAll(RegExp(r"[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ' \-]"), ' ')
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();

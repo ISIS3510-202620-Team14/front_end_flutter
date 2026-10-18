@@ -1,6 +1,5 @@
 part of 'activity.dart';
 
-/// Taken from the shared activity library.
 class LibraryActivity extends Activity {
   LibraryActivity({
     required super.id,

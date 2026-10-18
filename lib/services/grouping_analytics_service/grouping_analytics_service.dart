@@ -4,6 +4,9 @@ import 'package:front_end_flutter/services/analytics_service/analytics_service.d
 part 'grouping_event.dart';
 part 'grouping_recommendation.dart';
 part 'recommendation_strategy.dart';
+part 'class_size_tolerance.dart';
+part 'majority_vote_strategy.dart';
+part 'default_method_strategy.dart';
 
 enum GroupingMethod { automatic, manual }
 
@@ -47,8 +50,6 @@ class GroupingAnalyticsService {
     return chooseStrategy(events, classSize).recommend(events, classSize);
   }
 
-  /// With no event from a similar class there is nothing to vote on, so the
-  /// default method is kept; otherwise the majority decides.
   static RecommendationStrategy chooseStrategy(
     List<GroupingEvent> events,
     int classSize,

@@ -15,82 +15,73 @@ class GroupCard extends StatelessWidget {
 
     final String childrenLabel;
     if (group.childrenCount == 1) {
-      childrenLabel = 'niño';
+      childrenLabel = 'estudiante';
     } else {
-      childrenLabel = 'niños';
+      childrenLabel = 'estudiantes';
     }
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppTheme.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Material(
+      color: AppTheme.surface,
+      borderRadius: BorderRadius.circular(AppTheme.panelRadius),
+      child: InkWell(
+        onTap: onView ?? onEdit,
+        borderRadius: BorderRadius.circular(AppTheme.panelRadius),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(AppTheme.panelRadius),
+            border: Border.all(color: AppTheme.line),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  group.name,
-                  style: textTheme.headlineLarge?.copyWith(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(group.name, style: textTheme.titleMedium),
                   ),
-                ),
+                  const Icon(Icons.chevron_right, color: AppTheme.red),
+                ],
               ),
-              IconButton(
-                onPressed: onView,
-                icon: const Icon(Icons.visibility_outlined, size: 20),
-                color: AppTheme.softInk,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, size: 20),
-                color: AppTheme.softInk,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
+              const SizedBox(height: 16),
 
-          Row(
-            children: [
-              const Icon(
-                Icons.person_outline,
-                size: 16,
-                color: AppTheme.softInk,
+              Row(
+                children: [
+                  const Icon(
+                    Icons.person_outline,
+                    size: 16,
+                    color: AppTheme.red,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${group.childrenCount} '
+                    '$childrenLabel',
+                    style: textTheme.bodyLarge?.copyWith(fontSize: 13),
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Text(
-                '${group.childrenCount} '
-                '$childrenLabel',
-                style: textTheme.bodyLarge?.copyWith(fontSize: 13),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
+              const SizedBox(height: 10),
 
-          Row(
-            children: [
-              const Icon(
-                Icons.school_outlined,
-                size: 16,
-                color: AppTheme.softInk,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                group.teacherLabel,
-                style: textTheme.bodyLarge?.copyWith(fontSize: 13),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.school_outlined,
+                    size: 16,
+                    color: AppTheme.red,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      group.teacherLabel,
+                      style: textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

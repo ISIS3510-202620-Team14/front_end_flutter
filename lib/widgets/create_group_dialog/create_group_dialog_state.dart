@@ -119,8 +119,10 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       );
     }
     return Dialog(
-      backgroundColor: AppTheme.cream,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      backgroundColor: AppTheme.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.panelRadius),
+      ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -155,11 +157,11 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                   filled: true,
                   fillColor: AppTheme.surface,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppTheme.controlRadius),
                     borderSide: const BorderSide(color: AppTheme.line),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppTheme.controlRadius),
                     borderSide: const BorderSide(color: AppTheme.line),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
@@ -195,7 +197,9 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                         side: const BorderSide(color: AppTheme.line),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.controlRadius,
+                          ),
                         ),
                       ),
                       child: Text(
@@ -215,7 +219,9 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.controlRadius,
+                          ),
                         ),
                       ),
                       child: submitContent,

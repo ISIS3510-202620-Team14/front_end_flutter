@@ -47,7 +47,7 @@ class GroupingMethodSelector extends StatelessWidget {
         _MethodOption(
           icon: Icons.auto_awesome,
           title: 'Automática',
-          subtitle: 'La app distribuye los niños según su nivel',
+          subtitle: 'La app distribuye los estudiantes según su nivel',
           isSelected: selected == GroupingMethod.automatic,
           isRecommended:
               recommendation?.hasEnoughData == true &&
@@ -61,7 +61,7 @@ class GroupingMethodSelector extends StatelessWidget {
         _MethodOption(
           icon: Icons.pan_tool_outlined,
           title: 'Manual',
-          subtitle: 'Tú eliges qué niños van en cada grupo',
+          subtitle: 'Tú eliges qué estudiantes van en cada grupo',
           isSelected: selected == GroupingMethod.manual,
           isRecommended:
               recommendation?.hasEnoughData == true &&

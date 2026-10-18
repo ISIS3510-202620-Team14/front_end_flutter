@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/services/user_message/user_message.dart';
 import 'package:front_end_flutter/models/group/group.dart';
 import 'package:front_end_flutter/services/safe_notifier/safe_notifier.dart';
 import 'package:front_end_flutter/viewmodels/grupos_viewmodel/grupos_viewmodel.dart';
@@ -15,7 +16,7 @@ class GroupDetailViewModel extends SafeNotifier {
     try {
       group = Group.fromJson(await groups.detail(group.id));
     } catch (failure) {
-      error = failure.toString();
+      error = UserMessage.from(failure);
     } finally {
       busy = false;
       notifyListeners();
@@ -49,7 +50,7 @@ class GroupDetailViewModel extends SafeNotifier {
       await action();
       group = Group.fromJson(await groups.detail(group.id));
     } catch (failure) {
-      error = failure.toString();
+      error = UserMessage.from(failure);
     } finally {
       busy = false;
       notifyListeners();

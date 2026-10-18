@@ -1,9 +1,9 @@
+import 'package:front_end_flutter/widgets/brand_heading/brand_heading.dart';
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/viewmodels/home_viewmodel/home_viewmodel.dart';
 import 'package:front_end_flutter/widgets/quick_action_card/quick_action_card.dart';
-import 'package:front_end_flutter/widgets/subject_progress_card/subject_progress_card.dart';
+import 'package:front_end_flutter/views/evaluation_menu_view/evaluation_menu_view.dart';
 import 'package:front_end_flutter/models/quick_action/quick_action.dart';
-import 'package:front_end_flutter/views/classification_view/classification_view.dart';
 import 'package:front_end_flutter/views/activities_view/activities_view.dart';
 
 class HoyView extends StatelessWidget {
@@ -12,8 +12,10 @@ class HoyView extends StatelessWidget {
     required this.viewModel,
     required this.onStudents,
     required this.onHours,
+    this.schools = const [],
   });
   final HomeViewModel viewModel;
+  final List<Map<String, dynamic>> schools;
   final VoidCallback onStudents;
   final VoidCallback onHours;
   @override
@@ -22,13 +24,10 @@ class HoyView extends StatelessWidget {
       listenable: viewModel,
       builder: (context, child) {
         return ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
-            Text(
-              viewModel.sectionTitle,
-              style: Theme.of(context).textTheme.headlineLarge,
-            ),
-            const SizedBox(height: 16),
+            BrandHeading(title: viewModel.sectionTitle),
+            const SizedBox(height: 24),
             if (viewModel.studentsViewModel.loading)
               const LinearProgressIndicator(),
             if (viewModel.studentsViewModel.error != null) ...[
@@ -38,47 +37,49 @@ class HoyView extends StatelessWidget {
                 child: const Text('Reintentar'),
               ),
             ],
-            for (final subject in viewModel.subjects) ...[
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) {
-                        return ClassificationView(
-                          title: subject.title,
-                          studentsViewModel: viewModel.studentsViewModel,
-                        );
-                      },
-                    ),
-                  );
-                },
-                child: SubjectProgressCard(data: subject),
-              ),
-              const SizedBox(height: 16),
-            ],
             QuickActionCard(
               action: const QuickAction(
                 icon: Icons.access_time,
-                title: 'Planear horas',
-                subtitle: 'Registra tus horas por día',
+                title: 'Reportar horas',
+                subtitle: 'Registra las horas de tu semana',
               ),
               onTap: onHours,
             ),
             const SizedBox(height: 16),
             QuickActionCard(
               action: const QuickAction(
-                icon: Icons.document_scanner_outlined,
-                title: 'Mi lista y escáner',
-                subtitle: 'Importa estudiantes y toma asistencia',
+                icon: Icons.fact_check_outlined,
+                title: 'Reportar asistencia',
+                subtitle: 'Registra quiénes asistieron a la sesión',
               ),
               onTap: onStudents,
             ),
             const SizedBox(height: 16),
             QuickActionCard(
               action: const QuickAction(
+                icon: Icons.assessment_outlined,
+                title: 'Evaluación formativa',
+                subtitle: 'Elige Lectura o Matemáticas',
+              ),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (BuildContext context) {
+                      return EvaluationMenuView(
+                        viewModel: viewModel,
+                        schools: schools,
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            QuickActionCard(
+              action: const QuickAction(
                 icon: Icons.menu_book_outlined,
                 title: 'Planear actividades',
-                subtitle: 'Usa la biblioteca o crea las tuyas',
+                subtitle: 'Elige actividades de la biblioteca',
               ),
               onTap: () {
                 Navigator.of(context).push(

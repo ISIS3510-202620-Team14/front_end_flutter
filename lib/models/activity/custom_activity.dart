@@ -1,6 +1,5 @@
 part of 'activity.dart';
 
-/// Written by the teacher.
 class CustomActivity extends Activity {
   CustomActivity({
     required super.id,

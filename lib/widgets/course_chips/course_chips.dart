@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:front_end_flutter/theme/app_theme/app_theme.dart';
 part 'course_chip.dart';
 
 class CourseChips extends StatelessWidget {
