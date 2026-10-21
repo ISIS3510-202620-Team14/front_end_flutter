@@ -45,6 +45,9 @@ class AttendanceViewModel extends SafeNotifier {
   }
 
   Future<void> restore() async {
+    if (restoring || persisting || saving) {
+      return;
+    }
     if (draftStore == null) {
       return;
     }
@@ -63,20 +66,33 @@ class AttendanceViewModel extends SafeNotifier {
     }
   }
 
-  Future<void> _persist() async {
+  Future<bool> _persist() async {
     if (draftStore == null || _restoreFailed) {
-      return;
+      return !_restoreFailed;
     }
     persisting = true;
     notifyListeners();
     try {
       await draftStore!.save(_drafts);
       storageError = null;
+      return true;
     } catch (_) {
       storageError = 'No pudimos guardar el borrador en este dispositivo. Mantén la aplicación abierta y vuelve a intentarlo.';
+      return false;
     } finally {
       persisting = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> retryStorage() async {
+    if (saving || restoring || persisting) {
+      return;
+    }
+    if (_restoreFailed) {
+      await restore();
+    } else {
+      await _persist();
     }
   }
 
@@ -237,7 +253,14 @@ class AttendanceViewModel extends SafeNotifier {
     })) {
       return;
     }
-    _draft[id] = present;
+    final student = visibleStudents.firstWhere((student) {
+      return student.id == id;
+    });
+    if (student.attendance == (present ? 'vino' : 'no_vino')) {
+      _draft.remove(id);
+    } else {
+      _draft[id] = present;
+    }
     await _persist();
     message = null;
     notifyListeners();
@@ -301,8 +324,13 @@ class AttendanceViewModel extends SafeNotifier {
     try {
       for (final Student student in pending) {
         await students.attendance(student, _draft[student.id]!, date);
+        final present = _draft[student.id]!;
         _draft.remove(student.id);
-        await _persist();
+        if (!await _persist()) {
+          _draft[student.id] = present;
+          message = 'La marca se envió, pero no pudimos actualizar el borrador local. Reintenta guardar antes de salir.';
+          return;
+        }
       }
       message = 'Asistencia enviada.';
     } catch (error) {

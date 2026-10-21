@@ -1,6 +1,6 @@
 part of 'horas_view.dart';
 
-class _HorasViewState extends State<HorasView> {
+class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
   late final HorasViewModel _viewModel = HorasViewModel(
     repository: widget.repository,
   );
@@ -9,9 +9,11 @@ class _HorasViewState extends State<HorasView> {
   final TextEditingController _reason = TextEditingController();
   String? _reasonCategory;
   String? _reasonError;
+  int _formRevision = -1;
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.schools.isNotEmpty) {
       _viewModel.schoolId = widget.schools.first['id'] as String;
     }
@@ -20,7 +22,8 @@ class _HorasViewState extends State<HorasView> {
   }
 
   void _sync() {
-    if (!_viewModel.busy && _viewModel.message == null) {
+    if (!_viewModel.busy && _formRevision != _viewModel.formRevision) {
+      _formRevision = _viewModel.formRevision;
       final bool exists = _viewModel.weekReceipts.any((
         Map<String, dynamic> receipt,
       ) {
@@ -41,12 +44,18 @@ class _HorasViewState extends State<HorasView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _viewModel.removeListener(_sync);
     _viewModel.dispose();
     _planned.dispose();
     _worked.dispose();
     _reason.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _viewModel.setActive(state == AppLifecycleState.resumed);
   }
 
   Future<void> _date() async {
@@ -236,6 +245,31 @@ class _HorasViewState extends State<HorasView> {
               ),
             ),
             const SizedBox(height: 16),
+            if (_viewModel.currentReport != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  HoursRepository.statusLabel(_viewModel.currentReport!),
+                ),
+              ),
+            if (_viewModel.currentReport?['syncError'] != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(_viewModel.currentReport!['syncError'] as String),
+              ),
+            if (_viewModel.currentReport?['syncState'] == 'conflict') ...[
+              Text(
+                'Servidor: ${_viewModel.currentReport?['remote']?['workedHours']} h realizadas de '
+                '${_viewModel.currentReport?['remote']?['plannedHours']} h programadas. '
+                'Los campos conservan tu versión local.',
+              ),
+              TextButton(
+                onPressed: _viewModel.busy || _viewModel.syncing
+                    ? null
+                    : _viewModel.useServer,
+                child: const Text('Usar versión del servidor'),
+              ),
+            ],
             EnadPanel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,6 +381,15 @@ class _HorasViewState extends State<HorasView> {
                       padding: const EdgeInsets.only(top: 12),
                       child: Text(_viewModel.message!),
                     ),
+                  TextButton.icon(
+                    onPressed: _viewModel.busy || _viewModel.syncing
+                        ? null
+                        : () {
+                            _viewModel.selectDate(_viewModel.date);
+                          },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Actualizar y enviar pendientes'),
+                  ),
                 ],
               ),
             ),

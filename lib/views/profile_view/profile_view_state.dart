@@ -205,10 +205,11 @@ class _ProfileViewState extends State<ProfileView> {
                 },
                 children: [
                   Text(
-                    'Últimos 30 días',
+                    'Últimos 30 días y reportes pendientes',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
+                  if (_history.notice != null) Text(_history.notice!),
                   if (_history.loading)
                     const LinearProgressIndicator()
                   else if (_history.error != null)
@@ -228,16 +229,24 @@ class _ProfileViewState extends State<ProfileView> {
                               ),
                             ),
                           ),
-                          const RecordStatus(label: 'Enviado'),
+                          RecordStatus(
+                            label: HoursRepository.statusLabel(receipt),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Text(
                         '${receipt['workedHours']} h realizadas de ${receipt['plannedHours']} h programadas',
                       ),
+                      if (receipt['syncError'] != null)
+                        Text(receipt['syncError'] as String),
                       const Divider(height: 24),
                     ],
                   const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _history.loading ? null : _history.load,
+                    child: const Text('Actualizar y enviar pendientes'),
+                  ),
                 ],
               ),
             ),

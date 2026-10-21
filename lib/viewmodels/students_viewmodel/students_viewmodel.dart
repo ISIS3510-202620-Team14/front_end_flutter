@@ -48,11 +48,19 @@ class StudentsViewModel extends SafeNotifier {
 
   Future<void> _load() async {
     final int version = ++_loadVersion;
+    final date =
+        attendanceDate ??
+        DateTime.now()
+            .toUtc()
+            .subtract(const Duration(hours: 5))
+            .toIso8601String()
+            .substring(0, 10);
+    attendanceDate = date;
     _loading = true;
     notifyListeners();
     try {
       final List<Student> loaded = await _service.fetchStudents(
-        attendanceDate: attendanceDate,
+        attendanceDate: date,
       );
       if (version != _loadVersion) {
         return;
@@ -70,6 +78,11 @@ class StudentsViewModel extends SafeNotifier {
   }
 
   Future<void> selectAttendanceDate(String date) async {
+    if (attendanceDate != date) {
+      _students = _students.map((student) {
+        return student.copyWith(attendance: 'sin_registro');
+      }).toList();
+    }
     attendanceDate = date;
     await _load();
   }
@@ -172,12 +185,13 @@ class StudentsViewModel extends SafeNotifier {
 
   Future<void> attendance(Student student, bool present, String date) async {
     await _service.attendance(student, present, date);
-    await _load();
-    if (error != null) {
-      throw ApiException(
-        503,
-        'La marca se envió, pero no pudimos confirmar la lista. $error',
-      );
+    if (attendanceDate == date) {
+      final current = _students.where((item) {
+        return item.id == student.id;
+      }).firstOrNull;
+      if (current != null) {
+        _replace(current.copyWith(attendance: present ? 'vino' : 'no_vino'));
+      }
     }
   }
 

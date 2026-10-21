@@ -21,6 +21,9 @@ class TeacherMetricsPanel extends StatelessWidget {
     double planned = 0;
     double worked = 0;
     for (final Map<String, dynamic> receipt in receipts) {
+      if (receipt['syncState'] != null && receipt['syncState'] != 'sent') {
+        continue;
+      }
       planned += (receipt['plannedHours'] as num? ?? 0).toDouble();
       worked += (receipt['workedHours'] as num? ?? 0).toDouble();
     }

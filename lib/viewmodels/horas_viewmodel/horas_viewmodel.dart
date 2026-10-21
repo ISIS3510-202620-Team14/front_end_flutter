@@ -1,11 +1,21 @@
+import 'dart:async';
+
 import 'package:front_end_flutter/services/user_message/user_message.dart';
 import 'package:front_end_flutter/services/safe_notifier/safe_notifier.dart';
 import 'package:front_end_flutter/services/hours_repository/hours_repository.dart';
 
 class HorasViewModel extends SafeNotifier {
   HorasViewModel({HoursRepository? repository})
-    : _repository = repository ?? HoursRepository();
+    : _repository = repository ?? HoursRepository() {
+    _retry = Timer.periodic(const Duration(seconds: 30), (_) {
+      syncPending();
+    });
+  }
   final HoursRepository _repository;
+  Timer? _retry;
+  bool syncing = false;
+  int formRevision = 0;
+  Map<String, dynamic>? currentReport;
   DateTime date = DateTime.now().toUtc().subtract(const Duration(hours: 5));
   String? schoolId;
   double planned = 0;
@@ -62,22 +72,50 @@ class HorasViewModel extends SafeNotifier {
     planned = 0;
     worked = 0;
     reason = '';
+    currentReport = null;
     try {
-      final data = await _repository.load(dateKey);
+      await _repository.synchronize();
       weekReceipts = await _repository.loadPeriod(
         weekStart,
         weekStart.add(const Duration(days: 6)),
       );
       weekAvailable = true;
+      Map<String, dynamic>? data;
+      for (final report in weekReceipts) {
+        if (report['date'] == dateKey) data = report;
+      }
+      currentReport = data;
       if (data != null) {
         planned = (data['plannedHours'] as num).toDouble();
         worked = (data['workedHours'] as num).toDouble();
         reason = data['reason'] as String? ?? '';
         schoolId = data['schoolId'] as String? ?? schoolId;
       }
-    } catch (_) {
-      message = 'No pudimos cargar los reportes enviados desde la aplicación.';
+      if (_repository.usingCache) message = 'Sin conexión. Mostrando los reportes guardados en este dispositivo.';
+    } catch (error) {
+      message = 'No pudimos actualizar los reportes. Mostrando únicamente los datos disponibles en este dispositivo.';
+      try {
+        final local = await _repository.localReports();
+        weekReceipts = local.where((report) {
+          final day = DateTime.parse(report['date'] as String);
+          return !day.isBefore(weekStart) &&
+              day.isBefore(weekStart.add(const Duration(days: 7)));
+        }).toList();
+        currentReport = null;
+        for (final report in weekReceipts) {
+          if (report['date'] == dateKey) currentReport = report;
+        }
+        if (currentReport != null) {
+          planned = (currentReport!['plannedHours'] as num).toDouble();
+          worked = (currentReport!['workedHours'] as num).toDouble();
+          reason = currentReport!['reason'] as String? ?? '';
+          schoolId = currentReport!['schoolId'] as String? ?? schoolId;
+        }
+      } catch (_) {
+        message = 'No pudimos leer las horas guardadas en este dispositivo. No borres los datos de la aplicación.';
+      }
     } finally {
+      formRevision++;
       busy = false;
       notifyListeners();
     }
@@ -93,6 +131,13 @@ class HorasViewModel extends SafeNotifier {
     }
     final plannedValue = double.tryParse(plannedText.replaceAll(',', '.'));
     final workedValue = double.tryParse(workedText.replaceAll(',', '.'));
+    final today = DateTime.now().toUtc().subtract(const Duration(hours: 5));
+    if (dateKey.compareTo(today.toIso8601String().substring(0, 10)) > 0 ||
+        date.year != today.year) {
+      message = 'Selecciona una fecha del año actual que no sea futura.';
+      notifyListeners();
+      return;
+    }
     if (plannedValue == null ||
         workedValue == null ||
         !plannedValue.isFinite ||
@@ -100,7 +145,8 @@ class HorasViewModel extends SafeNotifier {
         plannedValue < 0 ||
         plannedValue > 24 ||
         workedValue < 0 ||
-        workedValue > 24) {
+        workedValue > 24 ||
+        (plannedValue == 0 && workedValue == 0)) {
       message = 'Indica horas entre 0 y 24.';
       notifyListeners();
       return;
@@ -110,7 +156,9 @@ class HorasViewModel extends SafeNotifier {
       notifyListeners();
       return;
     }
-    if (reasonText.trim().length > 500 || schoolId == null) {
+    if (reasonText.trim().length > 500 ||
+        schoolId == null ||
+        schoolId!.trim().isEmpty) {
       message = 'Selecciona institución y escribe un motivo de máximo 500 caracteres.';
       notifyListeners();
       return;
@@ -130,22 +178,73 @@ class HorasViewModel extends SafeNotifier {
         'platform': 'flutter',
         'appVersion': '1.0.0',
       });
-      message = 'Reporte guardado en el servidor.';
+      message = receipt ? 'Reporte enviado.' : 'Reporte guardado en este dispositivo. Se enviará al recuperar conexión con la aplicación abierta.';
       planned = plannedValue;
       worked = workedValue;
       reason = reasonText.trim();
-      try {
-        weekReceipts = await _repository.loadPeriod(
-          weekStart,
-          weekStart.add(const Duration(days: 6)),
-        );
-        weekAvailable = true;
-      } catch (_) {
-        weekAvailable = false;
+    } catch (error) {
+      message = UserMessage.from(error);
+    } finally {
+      await _refreshLocal();
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _refreshLocal() async {
+    try {
+      final local = await _repository.localReports();
+      weekReceipts = local.where((report) {
+        final day = DateTime.parse(report['date'] as String);
+        return !day.isBefore(weekStart) &&
+            day.isBefore(weekStart.add(const Duration(days: 7)));
+      }).toList();
+      currentReport = null;
+      for (final report in weekReceipts) {
+        if (report['date'] == dateKey) currentReport = report;
       }
-      if (!receipt) {
-        message = 'Reporte guardado; no pudimos guardar el comprobante para consultarlo desde la aplicación.';
+    } catch (_) {
+      message = 'No pudimos leer el estado local del reporte. Reintenta antes de cerrar la aplicación.';
+    }
+  }
+
+  Future<void> syncPending() async {
+    if (busy || syncing || disposed) return;
+    syncing = true;
+    try {
+      final wasPending = currentReport?['syncState'] == 'pending';
+      await _repository.synchronize();
+      await _refreshLocal();
+      if (wasPending && currentReport?['syncState'] == 'sent') {
+        message = 'Reporte enviado.';
       }
+    } catch (_) {
+      message =
+          'No pudimos enviar los pendientes. Reintenta cuando tengas conexión.';
+    } finally {
+      syncing = false;
+      notifyListeners();
+    }
+  }
+
+  void setActive(bool active) {
+    _retry?.cancel();
+    if (active) {
+      syncPending();
+      _retry = Timer.periodic(const Duration(seconds: 30), (_) {
+        syncPending();
+      });
+    }
+  }
+
+  Future<void> useServer() async {
+    if (busy || syncing) return;
+    busy = true;
+    notifyListeners();
+    try {
+      await _repository.useServer(dateKey);
+      busy = false;
+      await selectDate(date);
     } catch (error) {
       message = UserMessage.from(error);
     } finally {
@@ -156,6 +255,7 @@ class HorasViewModel extends SafeNotifier {
 
   @override
   void dispose() {
+    _retry?.cancel();
     _repository.dispose();
     super.dispose();
   }

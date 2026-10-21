@@ -35,6 +35,7 @@ class SessionViewModel extends SafeNotifier {
         email: loadedProfile.email,
         role: loadedProfile.role,
         active: loadedProfile.active,
+        campusIds: loadedProfile.campusIds,
         schoolIds: schools.map((Map<String, dynamic> school) {
           return school['id'] as String;
         }).toList(),

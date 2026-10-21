@@ -232,7 +232,20 @@ class _StudentsViewState extends State<StudentsView> {
                       if (_attendance.storageError != null)
                         SliverToBoxAdapter(
                           child: EnadPanel(
-                            child: Text(_attendance.storageError!),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(_attendance.storageError!),
+                                TextButton(
+                                  onPressed: locked
+                                      ? null
+                                      : _attendance.retryStorage,
+                                  child: const Text(
+                                    'Reintentar guardado local',
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       if (widget.viewModel.error != null)
