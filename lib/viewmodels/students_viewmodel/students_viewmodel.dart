@@ -183,8 +183,34 @@ class StudentsViewModel extends SafeNotifier {
     return result;
   }
 
-  Future<void> attendance(Student student, bool present, String date) async {
-    await _service.attendance(student, present, date);
+  Future<List<Student>> attendanceSnapshot(String date) {
+    return _service.fetchStudents(attendanceDate: date);
+  }
+
+  void acceptAttendance(String id, String status, String date) {
+    if (attendanceDate != date) {
+      return;
+    }
+    final current = _students.where((student) {
+      return student.id == id;
+    }).firstOrNull;
+    if (current != null) {
+      _replace(current.copyWith(attendance: status));
+    }
+  }
+
+  Future<void> attendance(
+    Student student,
+    bool present,
+    String date, {
+    String? expectedStatus,
+  }) async {
+    await _service.attendance(
+      student,
+      present,
+      date,
+      expectedStatus: expectedStatus,
+    );
     if (attendanceDate == date) {
       final current = _students.where((item) {
         return item.id == student.id;

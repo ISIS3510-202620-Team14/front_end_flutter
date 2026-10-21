@@ -1,3 +1,5 @@
+import 'package:front_end_flutter/services/attendance_sync_control/attendance_sync_control.dart';
+import 'package:front_end_flutter/services/api_client/api_client.dart';
 import 'package:front_end_flutter/services/attendance_draft_store/attendance_draft_store.dart';
 import 'package:front_end_flutter/models/student/student.dart';
 import 'package:front_end_flutter/services/safe_notifier/safe_notifier.dart';
@@ -55,8 +57,13 @@ class AttendanceViewModel extends SafeNotifier {
     notifyListeners();
     try {
       _drafts.addAll(await draftStore!.load());
+      _bases.addAll(await draftStore!.loadMetadata('bases'));
+      _failures.addAll(await draftStore!.loadMetadata('failures'));
       _restoreFailed = false;
       storageError = null;
+      try {
+        message = await draftStore!.takeNotice() ?? message;
+      } catch (_) {}
     } catch (_) {
       _restoreFailed = true;
       storageError = 'No pudimos recuperar tus pendientes. No borres los datos de la aplicación. Intenta abrirla de nuevo.';
@@ -73,7 +80,7 @@ class AttendanceViewModel extends SafeNotifier {
     persisting = true;
     notifyListeners();
     try {
-      await draftStore!.save(_drafts);
+      await draftStore!.save(_drafts, bases: _bases, failures: _failures);
       storageError = null;
       return true;
     } catch (_) {
@@ -97,6 +104,20 @@ class AttendanceViewModel extends SafeNotifier {
   }
 
   final Map<String, Map<String, bool>> _drafts = {};
+  final Map<String, Map<String, String>> _bases = {};
+  final Map<String, Map<String, String>> _failures = {};
+  Map<String, String> get _base {
+    return _bases.putIfAbsent(date, () {
+      return {};
+    });
+  }
+
+  Map<String, String> get _failed {
+    return _failures.putIfAbsent(date, () {
+      return {};
+    });
+  }
+
   Map<String, bool> get _draft {
     return _drafts.putIfAbsent(date, () {
       return <String, bool>{};
@@ -140,7 +161,9 @@ class AttendanceViewModel extends SafeNotifier {
 
   String statusOf(Student student) {
     if (_draft.containsKey(student.id)) {
-      return 'Pendiente de envío';
+      return _failed.containsKey(student.id)
+          ? 'No enviada: revisa y vuelve a marcar'
+          : 'Pendiente de envío';
     }
     if (markOf(student) == null) {
       return 'Sin registrar';
@@ -192,7 +215,8 @@ class AttendanceViewModel extends SafeNotifier {
         }) &&
         recordedCount == visibleStudents.length &&
         visibleStudents.any((Student student) {
-          return _draft.containsKey(student.id);
+          return _draft.containsKey(student.id) &&
+              !_failed.containsKey(student.id);
         });
   }
 
@@ -220,6 +244,8 @@ class AttendanceViewModel extends SafeNotifier {
     }
     for (final Student student in visibleStudents) {
       _draft.remove(student.id);
+      _base.remove(student.id);
+      _failed.remove(student.id);
     }
     await _persist();
     message = null;
@@ -256,9 +282,14 @@ class AttendanceViewModel extends SafeNotifier {
     final student = visibleStudents.firstWhere((student) {
       return student.id == id;
     });
+    _failed.remove(id);
     if (student.attendance == (present ? 'vino' : 'no_vino')) {
       _draft.remove(id);
+      _base.remove(id);
     } else {
+      _base.putIfAbsent(id, () {
+        return student.attendance;
+      });
       _draft[id] = present;
     }
     await _persist();
@@ -278,6 +309,10 @@ class AttendanceViewModel extends SafeNotifier {
     final Set<String> selected = ids.toSet();
     for (final Student student in visibleStudents) {
       if (selected.contains(student.id)) {
+        _base.putIfAbsent(student.id, () {
+          return student.attendance;
+        });
+        _failed.remove(student.id);
         _draft[student.id] = true;
       }
     }
@@ -298,6 +333,9 @@ class AttendanceViewModel extends SafeNotifier {
       for (final Map<String, bool> draft in _drafts.values) {
         draft.remove(student.id);
       }
+      for (final values in [..._bases.values, ..._failures.values]) {
+        values.remove(student.id);
+      }
       await _persist();
       message = 'Estudiante marcado como Retirado.';
     } catch (error) {
@@ -309,34 +347,136 @@ class AttendanceViewModel extends SafeNotifier {
   }
 
   Future<void> save() async {
-    if (!canSave) {
-      message =
-          'Registra la asistencia de todos los estudiantes antes de enviar.';
+    if (saving) {
+      message = 'Ya hay una sincronización en curso. Intenta de nuevo cuando termine.';
       notifyListeners();
       return;
     }
-    final List<Student> pending = visibleStudents.where((Student student) {
-      return _draft.containsKey(student.id);
-    }).toList();
+    if (!canSave) {
+      message = 'Registra la asistencia de todos los estudiantes antes de enviar. Si una marca falló, revísala y vuelve a marcarla.';
+      notifyListeners();
+      return;
+    }
+    if (!AttendanceSyncControl.tryAcquire()) {
+      message = 'Ya hay una sincronización en curso. Intenta de nuevo cuando termine.';
+      notifyListeners();
+      return;
+    }
     saving = true;
     message = null;
     notifyListeners();
+    final pending = visibleStudents.where((student) {
+      return _draft.containsKey(student.id) && !_failed.containsKey(student.id);
+    }).toList();
+    final values = Map<String, bool>.from(_draft);
+    final conflicts = <String>[];
+    final resolved = <String>[];
+    var failed = 0;
     try {
-      for (final Student student in pending) {
-        await students.attendance(student, _draft[student.id]!, date);
-        final present = _draft[student.id]!;
-        _draft.remove(student.id);
-        if (!await _persist()) {
-          _draft[student.id] = present;
-          message = 'La marca se envió, pero no pudimos actualizar el borrador local. Reintenta guardar antes de salir.';
-          return;
-        }
+      final remote = await students.attendanceSnapshot(date);
+      final server = {
+        for (final student in remote) student.id: student.attendance,
+      };
+      await AttendanceSyncControl.send(
+        pending.map((student) {
+          return () async {
+            final desired = values[student.id]! ? 'vino' : 'no_vino';
+            final current = server[student.id] ?? 'sin_registro';
+            if (AttendanceSyncControl.conflicts(
+              _base[student.id],
+              current,
+              desired,
+            )) {
+              students.acceptAttendance(student.id, current, date);
+              conflicts.add('${student.name} ($date)');
+              resolved.add(student.id);
+              return;
+            }
+            try {
+              await students.attendance(
+                student,
+                values[student.id]!,
+                date,
+                expectedStatus: current,
+              );
+              resolved.add(student.id);
+            } catch (error) {
+              if (error is ApiException && error.statusCode == 409) {
+                try {
+                  final latest = await students.attendanceSnapshot(date);
+                  final updated = latest.where((item) {
+                    return item.id == student.id;
+                  }).firstOrNull;
+                  if (updated != null) {
+                    students.acceptAttendance(
+                      student.id,
+                      updated.attendance,
+                      date,
+                    );
+                    conflicts.add('${student.name} ($date)');
+                    resolved.add(student.id);
+                    return;
+                  }
+                } catch (_) {}
+                failed++;
+                return;
+              }
+              failed++;
+              if (error is ApiException &&
+                  error.statusCode != 0 &&
+                  error.statusCode != 401 &&
+                  error.statusCode != 408 &&
+                  error.statusCode != 429 &&
+                  error.statusCode < 500) {
+                _failed[student.id] = error.message;
+              }
+            }
+          };
+        }).toList(),
+      );
+      final oldBases = Map<String, String>.from(_base);
+      for (final id in resolved) {
+        _draft.remove(id);
+        _base.remove(id);
+        _failed.remove(id);
       }
-      message = 'Asistencia enviada.';
-    } catch (error) {
-      message = 'El envío no terminó. Tus marcas siguen pendientes. Revisa la conexión y pulsa Guardar de nuevo.';
+      if (!await _persist()) {
+        for (final id in resolved) {
+          _draft[id] = values[id]!;
+          if (oldBases.containsKey(id)) {
+            _base[id] = oldBases[id]!;
+          }
+        }
+        message = 'No pudimos actualizar el borrador local. Reintenta guardar antes de salir.';
+        return;
+      }
+      if (conflicts.isNotEmpty) {
+        final names = conflicts.take(3).join(', ');
+        final rest = conflicts.length > 3
+            ? ' y ${conflicts.length - 3} más'
+            : '';
+        message =
+            'Otro celular registró primero la asistencia de ${conflicts.length} estudiante(s): $names$rest. Tus marcas no se enviaron para no pisar las suyas; ahora ves las del servidor. Revísalas y corrígelas si hace falta.';
+        if (failed > 0) {
+          message = '$message Quedaron $failed marcas sin enviar.';
+        }
+        try {
+          await draftStore?.saveNotice(message!);
+        } catch (_) {}
+      } else if (failed > 0) {
+        message =
+            'Quedaron $failed marcas sin enviar. Revisa la conexión; si una marca falló, revísala y vuelve a marcarla.';
+      } else {
+        message = 'Asistencia enviada.';
+        try {
+          await draftStore?.takeNotice();
+        } catch (_) {}
+      }
+    } catch (_) {
+      message = 'No pudimos comparar la asistencia con el servidor. Tus marcas siguen pendientes; reintenta cuando tengas conexión.';
     } finally {
       saving = false;
+      AttendanceSyncControl.release();
       notifyListeners();
     }
   }

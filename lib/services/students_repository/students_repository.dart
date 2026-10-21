@@ -168,7 +168,12 @@ class StudentsRepository {
     );
   }
 
-  Future<void> attendance(Student student, bool present, String date) async {
+  Future<void> attendance(
+    Student student,
+    bool present,
+    String date, {
+    String? expectedStatus,
+  }) async {
     String status = 'no_vino';
     if (present) {
       status = 'vino';
@@ -176,7 +181,11 @@ class StudentsRepository {
     final receipt = await _api.request(
       'PUT',
       'students/${student.id}/attendance',
-      body: {'date': date, 'status': status},
+      body: {
+        'date': date,
+        'status': status,
+        'expectedStatus': expectedStatus ?? student.attendance,
+      },
     );
     if (receipt['id'] != student.id ||
         receipt['date'] != date ||

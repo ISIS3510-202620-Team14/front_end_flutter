@@ -18,8 +18,11 @@ class AttendanceDraftStore {
     if (stored == null) {
       return {};
     }
-    final Map<String, dynamic> dates =
+    final Map<String, dynamic> decoded =
         jsonDecode(stored) as Map<String, dynamic>;
+    final Map<String, dynamic> dates = decoded['version'] == 2
+        ? Map<String, dynamic>.from(decoded['drafts'] as Map)
+        : decoded;
     final Map<String, Map<String, bool>> result = {};
     for (final MapEntry<String, dynamic> date in dates.entries) {
       result[date.key] = Map<String, bool>.from(date.value as Map);
@@ -27,8 +30,50 @@ class AttendanceDraftStore {
     return result;
   }
 
-  Future<void> save(Map<String, Map<String, bool>> drafts) {
-    final String snapshot = jsonEncode(drafts);
+  Future<Map<String, Map<String, String>>> loadMetadata(String field) async {
+    await _writes;
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_key);
+    if (raw == null) {
+      return {};
+    }
+    final data = jsonDecode(raw) as Map<String, dynamic>;
+    if (data['version'] != 2) {
+      return {};
+    }
+    final values = data[field] as Map? ?? {};
+    return values.map((date, entries) {
+      return MapEntry(date as String, Map<String, String>.from(entries as Map));
+    });
+  }
+
+  Future<void> saveNotice(String notice) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setString('${_key}_notice', notice)) {
+      throw StateError('No se pudo guardar el aviso de sincronización.');
+    }
+  }
+
+  Future<String?> takeNotice() async {
+    final prefs = await SharedPreferences.getInstance();
+    final notice = prefs.getString('${_key}_notice');
+    if (notice != null) {
+      await prefs.remove('${_key}_notice');
+    }
+    return notice;
+  }
+
+  Future<void> save(
+    Map<String, Map<String, bool>> drafts, {
+    Map<String, Map<String, String>> bases = const {},
+    Map<String, Map<String, String>> failures = const {},
+  }) {
+    final String snapshot = jsonEncode({
+      'version': 2,
+      'drafts': drafts,
+      'bases': bases,
+      'failures': failures,
+    });
     final Future<void> operation = _writes.then((_) async {
       final SharedPreferences preferences =
           await SharedPreferences.getInstance();
