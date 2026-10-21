@@ -11,7 +11,9 @@ class AttendanceStudentCard extends StatelessWidget {
     required this.onChanged,
     this.onRetire,
     this.onOpen,
+    this.controlsKey,
   });
+  final GlobalKey? controlsKey;
   final Student student;
   final VoidCallback? onOpen;
   final String status;
@@ -108,6 +110,7 @@ class AttendanceStudentCard extends StatelessWidget {
             Text(detail, style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 12),
             SegmentedButton<bool>(
+              key: controlsKey,
               segments: const [
                 ButtonSegment(value: true, label: Text('Asistió')),
                 ButtonSegment(value: false, label: Text('No asistió')),

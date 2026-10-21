@@ -13,12 +13,28 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    widget.tutorial?.validate = _validateTutorial;
+    widget.tutorial?.needsReason = () {
+      return _needsReason;
+    };
     WidgetsBinding.instance.addObserver(this);
     if (widget.schools.isNotEmpty) {
       _viewModel.schoolId = widget.schools.first['id'] as String;
     }
     _viewModel.addListener(_sync);
+    _viewModel.addListener(_refreshTutorial);
+    _planned.addListener(_refreshTutorial);
+    _worked.addListener(_refreshTutorial);
+    _reason.addListener(_refreshTutorial);
     _viewModel.selectDate(_viewModel.date);
+  }
+
+  void _refreshTutorial() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        widget.tutorial?.refresh();
+      }
+    });
   }
 
   void _sync() {
@@ -45,8 +61,11 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    widget.tutorial?.validate = null;
+    widget.tutorial?.needsReason = null;
     WidgetsBinding.instance.removeObserver(this);
     _viewModel.removeListener(_sync);
+    _viewModel.removeListener(_refreshTutorial);
     _viewModel.dispose();
     _planned.dispose();
     _worked.dispose();
@@ -163,6 +182,33 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
       }
     }
     await _viewModel.submitReport(_planned.text, _worked.text, reason);
+    widget.tutorial?.saved(
+      _viewModel.message == 'Reporte enviado.',
+      _viewModel.message,
+    );
+  }
+
+  String? _validateTutorial(int step) {
+    if (_viewModel.busy) return 'Espera a que termine de cargar el reporte.';
+    if (_viewModel.schoolId == null) {
+      return 'No tienes una institución disponible. Contacta a coordinación.';
+    }
+    if (step == 3 || step == 4) {
+      final text = step == 3 ? _planned.text : _worked.text;
+      final value = double.tryParse(text.replaceAll(',', '.'));
+      if (value == null || !value.isFinite || value < 0 || value > 24) {
+        return 'Escribe un número entre 0 y 24.';
+      }
+      if (step == 4 &&
+          value == 0 &&
+          double.tryParse(_planned.text.replaceAll(',', '.')) == 0) {
+        return 'Las horas programadas y realizadas no pueden ser ambas cero.';
+      }
+    }
+    if (step == 5) {
+      return HoursReason(category: _reasonCategory, detail: _reason.text).error;
+    }
+    return null;
   }
 
   ValueChanged<String?>? _selectReasonAction() {
@@ -174,6 +220,7 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
         _reasonCategory = category;
         _reasonError = null;
       });
+      _refreshTutorial();
     };
   }
 
@@ -187,7 +234,13 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([_viewModel, _planned, _worked, _reason]),
+      listenable: Listenable.merge([
+        _viewModel,
+        _planned,
+        _worked,
+        _reason,
+        if (widget.tutorial != null) widget.tutorial!,
+      ]),
       builder: (context, child) {
         final Future<void> Function()? selectDateAction;
         if (_viewModel.busy) {
@@ -222,11 +275,12 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
           selectDay = _viewModel.selectDate;
         }
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          padding: EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
             const BrandHeading(title: 'Reportar horas'),
             const SizedBox(height: 24),
             EnadPanel(
+              key: widget.tutorial?.keyFor('hours', 2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -279,7 +333,9 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
                 children: [
                   if (widget.schools.length > 1)
                     DropdownButtonFormField<String>(
-                      key: ValueKey(_viewModel.schoolId),
+                      key:
+                          widget.tutorial?.keyFor('hours', 1) ??
+                          ValueKey(_viewModel.schoolId),
                       initialValue: _viewModel.schoolId,
                       isExpanded: true,
                       decoration: const InputDecoration(
@@ -300,6 +356,7 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
                     ),
                   const SizedBox(height: 20),
                   TextField(
+                    key: widget.tutorial?.keyFor('hours', 3),
                     controller: _planned,
                     enabled: !_viewModel.busy,
                     keyboardType: const TextInputType.numberWithOptions(
@@ -312,6 +369,7 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
                   ),
                   const SizedBox(height: 20),
                   TextField(
+                    key: widget.tutorial?.keyFor('hours', 4),
                     controller: _worked,
                     enabled: !_viewModel.busy,
                     keyboardType: const TextInputType.numberWithOptions(
@@ -322,56 +380,64 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
                       suffixText: 'h',
                     ),
                   ),
-                  if (_needsReason) ...[
-                    const SizedBox(height: 20),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(
-                        'reason-${_viewModel.dateKey}-$_reasonCategory',
-                      ),
-                      initialValue: _reasonCategory,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Motivo'),
-                      items: [
-                        for (final String category in HoursReason.categories)
-                          DropdownMenuItem(
-                            value: category,
-                            child: Text(category),
+                  if (_needsReason)
+                    Column(
+                      key: widget.tutorial?.keyFor('hours', 5),
+                      children: [
+                        const SizedBox(height: 20),
+                        DropdownButtonFormField<String>(
+                          key: ValueKey(
+                            'reason-${_viewModel.dateKey}-$_reasonCategory',
+                          ),
+                          initialValue: _reasonCategory,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Motivo',
+                          ),
+                          items: [
+                            for (final String category
+                                in HoursReason.categories)
+                              DropdownMenuItem(
+                                value: category,
+                                child: Text(category),
+                              ),
+                          ],
+                          onChanged: _selectReasonAction(),
+                        ),
+                        if (_reasonCategory != null) ...[
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _reason,
+                            enabled: !_viewModel.busy,
+                            minLines: 2,
+                            maxLines: 4,
+                            maxLength: 480,
+                            decoration: InputDecoration(
+                              labelText: _detailLabel(),
+                              counterText: '',
+                            ),
+                            onChanged: (String value) {
+                              if (_reasonError != null) {
+                                setState(() {
+                                  _reasonError = null;
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                        if (_reasonError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              _reasonError!,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
                           ),
                       ],
-                      onChanged: _selectReasonAction(),
                     ),
-                    if (_reasonCategory != null) ...[
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _reason,
-                        enabled: !_viewModel.busy,
-                        minLines: 2,
-                        maxLines: 4,
-                        maxLength: 480,
-                        decoration: InputDecoration(
-                          labelText: _detailLabel(),
-                          counterText: '',
-                        ),
-                        onChanged: (String value) {
-                          if (_reasonError != null) {
-                            setState(() {
-                              _reasonError = null;
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                    if (_reasonError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          _reasonError!,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                  ],
                   const SizedBox(height: 12),
                   SizedBox(
+                    key: widget.tutorial?.keyFor('hours', 6),
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: submitAction,

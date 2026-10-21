@@ -81,8 +81,9 @@ class _ClassificationViewState extends State<ClassificationView> {
       onToggle: () {
         return _viewModel.toggleExpanded(student.number);
       },
-      onEvaluate: (String level, String sex, String age, int sample) {
-        return _viewModel.evaluate(student.number, level, sex, age, sample);
+      onEvaluate: (String level, String sex, String age, int sample) async {
+        await _viewModel.evaluate(student.number, level, sex, age, sample);
+        widget.tutorial?.saved(true, null, 'evaluation');
       },
       levels: _viewModel.subjectLevels,
       withdrawnLevel: ClassificationViewModel.withdrawnLevel,
@@ -188,118 +189,135 @@ class _ClassificationViewState extends State<ClassificationView> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: ListenableBuilder(
-          listenable: _viewModel,
-          builder: (context, _) {
-            if (_viewModel.loading) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppTheme.red),
-              );
-            }
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-              children: [
-                if (_viewModel.error != null)
-                  Text(
-                    _viewModel.error!,
-                    style: const TextStyle(color: AppTheme.red),
-                  ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left, size: 28),
-                      color: AppTheme.ink,
-                      onPressed: () {
-                        return Navigator.of(context).pop();
-                      },
+    return TutorialFrame(
+      controller: widget.tutorial,
+      from: 2,
+      child: Scaffold(
+        backgroundColor: AppTheme.background,
+        body: SafeArea(
+          child: ListenableBuilder(
+            listenable: _viewModel,
+            builder: (context, _) {
+              if (_viewModel.loading) {
+                return const Center(
+                  child: CircularProgressIndicator(color: AppTheme.red),
+                );
+              }
+              return ListView(
+                key: widget.tutorial?.keyFor('evaluation', 3),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                children: [
+                  if (_viewModel.error != null)
+                    Text(
+                      _viewModel.error!,
+                      style: const TextStyle(color: AppTheme.red),
                     ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(widget.title, style: textTheme.headlineLarge),
-                            Text(
-                              '${_viewModel.activeCount} de '
-                              '${_viewModel.totalCount} estudiantes activos',
-                              style: textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                EnadPanel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      DropdownButtonFormField<String>(
-                        initialValue: _viewModel.evaluationType,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Momento de evaluación *',
-                          hintText: 'Selecciona el momento',
-                        ),
-                        items: [
-                          for (final MapEntry<String, String> moment
-                              in ClassificationViewModel
-                                  .evaluationMoments
-                                  .entries)
-                            DropdownMenuItem(
-                              value: moment.key,
-                              child: Text(moment.value),
-                            ),
-                        ],
-                        onChanged: _viewModel.selectMoment,
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left, size: 28),
+                        color: AppTheme.ink,
+                        onPressed: () {
+                          return Navigator.of(context).pop();
+                        },
                       ),
-                      const SizedBox(height: 20),
-                      if (widget.schools.isNotEmpty) ...[
-                        OutlinedButton.icon(
-                          onPressed: _unexpected,
-                          icon: const Icon(Icons.person_add_alt_outlined),
-                          label: const Text('Agregar estudiante a la sesión'),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.title,
+                                style: textTheme.headlineLarge,
+                              ),
+                              Text(
+                                '${_viewModel.activeCount} de '
+                                '${_viewModel.totalCount} estudiantes activos',
+                                style: textTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                      ],
-                      const SectionLabel('CURSO'),
-                      const SizedBox(height: 10),
-                      CourseChips(
-                        courses: _viewModel.courses,
-                        selected: _viewModel.selectedCourse,
-                        onChanged: _viewModel.selectCourse,
                       ),
                     ],
                   ),
-                ),
-                if (_viewModel.evaluationType == null)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      'Selecciona el momento antes de registrar una evaluación.',
+                  const SizedBox(height: 20),
+                  EnadPanel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          key: widget.tutorial?.keyFor('evaluation', 2),
+                          initialValue: _viewModel.evaluationType,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Momento de evaluación *',
+                            hintText: 'Selecciona el momento',
+                          ),
+                          items: [
+                            for (final MapEntry<String, String> moment
+                                in ClassificationViewModel
+                                    .evaluationMoments
+                                    .entries)
+                              DropdownMenuItem(
+                                value: moment.key,
+                                child: Text(moment.value),
+                              ),
+                          ],
+                          onChanged: (value) {
+                            _viewModel.selectMoment(value);
+                            if (value != null) {
+                              widget.tutorial?.advance('evaluation', 2);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        if (widget.schools.isNotEmpty) ...[
+                          OutlinedButton.icon(
+                            onPressed: _unexpected,
+                            icon: const Icon(Icons.person_add_alt_outlined),
+                            label: const Text('Agregar estudiante a la sesión'),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        const SectionLabel('CURSO'),
+                        const SizedBox(height: 10),
+                        CourseChips(
+                          courses: _viewModel.courses,
+                          selected: _viewModel.selectedCourse,
+                          onChanged: _viewModel.selectCourse,
+                        ),
+                      ],
                     ),
-                  )
-                else ...[
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Las fichas muestran el último nivel registrado. Los nuevos resultados se guardan en el momento seleccionado.',
-                    style: TextStyle(fontSize: 12, color: AppTheme.softInk),
                   ),
-                  _buildGroup('Sin evaluar', _viewModel.pendingStudents),
-                  for (final level in _viewModel.subjectLevels)
-                    _buildGroup(level.name, _viewModel.studentsIn(level.name)),
-                  _buildOutOfSchoolGroup(),
+                  if (_viewModel.evaluationType == null)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Text(
+                        'Selecciona el momento antes de registrar una evaluación.',
+                      ),
+                    )
+                  else ...[
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Las fichas muestran el último nivel registrado. Los nuevos resultados se guardan en el momento seleccionado.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.softInk),
+                    ),
+                    _buildGroup('Sin evaluar', _viewModel.pendingStudents),
+                    for (final level in _viewModel.subjectLevels)
+                      _buildGroup(
+                        level.name,
+                        _viewModel.studentsIn(level.name),
+                      ),
+                    _buildOutOfSchoolGroup(),
+                  ],
                 ],
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
