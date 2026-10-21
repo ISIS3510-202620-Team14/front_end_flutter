@@ -238,6 +238,14 @@ class _ProfileViewState extends State<ProfileView> {
                       Text(
                         '${receipt['workedHours']} h realizadas de ${receipt['plannedHours']} h programadas',
                       ),
+                      Text(
+                        widget.session.schools.where((school) {
+                                  return school['id'] == receipt['schoolId'];
+                                }).firstOrNull?['name']
+                                as String? ??
+                            receipt['schoolId'] as String? ??
+                            'Institución sin registrar',
+                      ),
                       if (receipt['syncError'] != null)
                         Text(receipt['syncError'] as String),
                       const Divider(height: 24),

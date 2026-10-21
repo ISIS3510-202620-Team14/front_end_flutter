@@ -27,7 +27,8 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
       final bool exists = _viewModel.weekReceipts.any((
         Map<String, dynamic> receipt,
       ) {
-        return receipt['date'] == _viewModel.dateKey;
+        return receipt['date'] == _viewModel.dateKey &&
+            receipt['schoolId'] == _viewModel.schoolId;
       });
       _planned.text = '';
       _worked.text = '';
@@ -130,7 +131,8 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
     final bool exists = _viewModel.weekReceipts.any((
       Map<String, dynamic> receipt,
     ) {
-      return receipt['date'] == _viewModel.dateKey;
+      return receipt['date'] == _viewModel.dateKey &&
+          receipt['schoolId'] == _viewModel.schoolId;
     });
     if (exists) {
       final bool? replace = await showDialog<bool>(
@@ -200,6 +202,7 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
           selectSchoolAction = (value) {
             setState(() {
               _viewModel.schoolId = value;
+              _viewModel.selectDate(_viewModel.date);
             });
           };
         }

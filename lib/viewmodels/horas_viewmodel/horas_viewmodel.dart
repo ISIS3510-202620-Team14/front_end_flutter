@@ -82,7 +82,9 @@ class HorasViewModel extends SafeNotifier {
       weekAvailable = true;
       Map<String, dynamic>? data;
       for (final report in weekReceipts) {
-        if (report['date'] == dateKey) data = report;
+        if (report['date'] == dateKey && report['schoolId'] == schoolId) {
+          data = report;
+        }
       }
       currentReport = data;
       if (data != null) {
@@ -103,7 +105,9 @@ class HorasViewModel extends SafeNotifier {
         }).toList();
         currentReport = null;
         for (final report in weekReceipts) {
-          if (report['date'] == dateKey) currentReport = report;
+          if (report['date'] == dateKey && report['schoolId'] == schoolId) {
+            currentReport = report;
+          }
         }
         if (currentReport != null) {
           planned = (currentReport!['plannedHours'] as num).toDouble();
@@ -201,7 +205,9 @@ class HorasViewModel extends SafeNotifier {
       }).toList();
       currentReport = null;
       for (final report in weekReceipts) {
-        if (report['date'] == dateKey) currentReport = report;
+        if (report['date'] == dateKey && report['schoolId'] == schoolId) {
+          currentReport = report;
+        }
       }
     } catch (_) {
       message = 'No pudimos leer el estado local del reporte. Reintenta antes de cerrar la aplicación.';
@@ -242,7 +248,7 @@ class HorasViewModel extends SafeNotifier {
     busy = true;
     notifyListeners();
     try {
-      await _repository.useServer(dateKey);
+      await _repository.useServer(dateKey, schoolId!);
       busy = false;
       await selectDate(date);
     } catch (error) {

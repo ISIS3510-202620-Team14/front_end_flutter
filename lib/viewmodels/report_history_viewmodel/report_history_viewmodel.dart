@@ -32,7 +32,8 @@ class ReportHistoryViewModel extends SafeNotifier {
       for (final report in local) {
         if (report['syncState'] != 'sent' &&
             !receipts.any((item) {
-              return item['date'] == report['date'];
+              return item['date'] == report['date'] &&
+                  item['schoolId'] == report['schoolId'];
             })) {
           receipts.add(report);
         }

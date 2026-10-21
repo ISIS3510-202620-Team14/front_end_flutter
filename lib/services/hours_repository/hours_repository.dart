@@ -64,10 +64,15 @@ class HoursRepository {
         error.statusCode >= 500;
   }
 
-  Future<Map<String, dynamic>?> load(String date) async {
+  Future<Map<String, dynamic>?> load(
+    String date, {
+    required String schoolId,
+  }) async {
     final DateTime day = DateTime.parse(date);
     final reports = await loadPeriod(day, day);
-    return reports.isEmpty ? null : reports.first;
+    return reports.where((report) {
+      return report['schoolId'] == schoolId;
+    }).firstOrNull;
   }
 
   Future<List<Map<String, dynamic>>> loadPeriod(
@@ -88,26 +93,33 @@ class HoursRepository {
       final Map<String, dynamic> remote = {};
       for (final item in response['reports'] as List) {
         final report = Map<String, dynamic>.from(item as Map);
-        remote[report['date'] as String] = {...report, 'syncState': 'sent'};
+        remote[HoursStore.reportKey(
+          report['date'] as String,
+          report['schoolId'],
+        )] = {
+          ...report,
+          'syncState': 'sent',
+        };
       }
       local = await _store.update((reports) {
+        for (final entry in remote.entries) {
+          final existing = reports[entry.key];
+          if (existing is Map && existing['syncState'] != 'sent') continue;
+          final incoming = entry.value as Map;
+          if (existing is Map &&
+              DateTime.parse(existing['savedAt'] as String)
+                  .isAfter(DateTime.parse(incoming['savedAt'] as String))) {
+            continue;
+          }
+          reports[entry.key] = incoming;
+        }
         for (
           DateTime day = start;
           !day.isAfter(end);
           day = day.add(const Duration(days: 1))
         ) {
           final String date = _key(day);
-          final existing = reports[date];
-          if (existing is Map && existing['syncState'] != 'sent') continue;
-          final incoming = remote[date];
-          if (existing is Map && incoming == null) continue;
-          if (existing is Map &&
-              incoming is Map &&
-              DateTime.parse(existing['savedAt'] as String)
-                  .isAfter(DateTime.parse(incoming['savedAt'] as String))) {
-            continue;
-          }
-          reports[date] = remote[date];
+          reports[date] = null;
         }
       });
     } on ApiException catch (error) {
@@ -124,9 +136,9 @@ class HoursRepository {
     }
     final List<Map<String, dynamic>> result = [];
     for (final entry in local.entries) {
-      if (entry.key.compareTo(from) >= 0 &&
-          entry.key.compareTo(to) <= 0 &&
-          entry.value is Map) {
+      if (entry.value is Map &&
+          (entry.value['date'] as String).compareTo(from) >= 0 &&
+          (entry.value['date'] as String).compareTo(to) <= 0) {
         result.add(Map<String, dynamic>.from(entry.value as Map));
       }
     }
@@ -146,12 +158,13 @@ class HoursRepository {
 
   Future<bool> save(String date, Map<String, dynamic> body) async {
     _requireSession();
+    final key = HoursStore.reportKey(date, body['schoolId']);
     await _store.update((reports) {
-      reports[date] = {...body, 'date': date, 'syncState': 'pending'};
+      reports[key] = {...body, 'date': date, 'syncState': 'pending'};
     });
     await synchronize();
     final local = await _store.read();
-    final report = local[date] as Map;
+    final report = local[key] as Map;
     if (report['syncState'] == 'conflict' || report['syncState'] == 'failed') {
       throw ApiException(409, report['syncError'] as String);
     }
@@ -209,20 +222,25 @@ class HoursRepository {
         return;
       }
       await _store.update((current) {
-        final existing = current[date];
+        final key = HoursStore.reportKey(date, report['schoolId']);
+        final existing = current[key];
         if (existing is Map && existing['savedAt'] == report['savedAt']) {
-          current[date] = updated;
+          current[key] = updated;
         }
       });
     }
   }
 
-  Future<void> useServer(String date) async {
+  Future<void> useServer(String date, String schoolId) async {
     await synchronize();
-    final response = await _api.request('GET', 'workedHours/$date');
+    final response = await _api.request(
+      'GET',
+      'workedHours/$date',
+      query: {'schoolId': schoolId},
+    );
     await _store.update((reports) {
       final remote = response['report'];
-      reports[date] = remote == null
+      reports[HoursStore.reportKey(date, schoolId)] = remote == null
           ? null
           : {...Map<String, dynamic>.from(remote as Map), 'syncState': 'sent'};
     });

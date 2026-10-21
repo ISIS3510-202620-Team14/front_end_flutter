@@ -7,6 +7,10 @@ class HoursStore {
   final String userId;
   static final Map<String, Future<void>> _operations = {};
 
+  static String reportKey(String date, Object? schoolId) {
+    return jsonEncode([date, schoolId]);
+  }
+
   Future<Map<String, dynamic>> update(
     void Function(Map<String, dynamic>) change,
   ) {
@@ -20,6 +24,19 @@ class HoursStore {
         reports = {};
       } else {
         reports = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      }
+      for (final entry in reports.entries.toList()) {
+        final value = entry.value;
+        if (value is Map && entry.key == value['date']) {
+          final migratedKey = reportKey(
+            value['date'] as String,
+            value['schoolId'],
+          );
+          reports.putIfAbsent(migratedKey, () {
+            return value;
+          });
+          reports[entry.key] = null;
+        }
       }
       change(reports);
       if (!await preferences.setString(key, jsonEncode(reports))) {
