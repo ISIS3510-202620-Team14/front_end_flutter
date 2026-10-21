@@ -32,7 +32,9 @@ class _ScannerViewState extends State<ScannerView> {
           importButtonColor = AppTheme.softInk;
         }
         final void Function()? importAction;
-        if (valid.isEmpty || valid.length != _viewModel.rows.length) {
+        if (status == ScannerStatus.scanning ||
+            valid.isEmpty ||
+            _viewModel.validationError != null) {
           importAction = null;
         } else {
           importAction = () {
@@ -76,6 +78,11 @@ class _ScannerViewState extends State<ScannerView> {
                     ),
                   ),
                   if (_viewModel.rows.isNotEmpty) ...[
+                    if (_viewModel.validationError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(_viewModel.validationError!),
+                      ),
                     const SizedBox(height: 8),
                     Flexible(
                       child: ListView.separated(

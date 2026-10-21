@@ -17,6 +17,9 @@ class ScannerViewModel extends SafeNotifier {
   String? error;
 
   Future<void> scan() async {
+    if (status == ScannerStatus.scanning) {
+      return;
+    }
     status = ScannerStatus.scanning;
     error = null;
     notifyListeners();
@@ -32,16 +35,8 @@ class ScannerViewModel extends SafeNotifier {
         }
         status = selectedValue1;
       } else {
-        final Set<String> knownCodes = <String>{};
-        for (final ScannedRow row in rows) {
-          if (row.code.isNotEmpty) {
-            knownCodes.add(row.code);
-          }
-        }
         for (final ScannedRow row in names) {
-          if (row.code.isEmpty || knownCodes.add(row.code)) {
-            rows.add(row);
-          }
+          rows.add(row);
         }
         final ScannerStatus selectedValue2;
         if (rows.isEmpty) {
@@ -92,5 +87,21 @@ class ScannerViewModel extends SafeNotifier {
     return rows.where((r) {
       return r.name.trim().isNotEmpty && r.code.trim().isNotEmpty;
     }).toList();
+  }
+
+  String? get validationError {
+    if (rows.length > 200) {
+      return 'Importa máximo 200 estudiantes por lista.';
+    }
+    final codes = <String>{};
+    for (final row in rows) {
+      if (row.name.trim().isEmpty || row.code.trim().isEmpty) {
+        return 'Completa el nombre y el código de cada estudiante.';
+      }
+      if (!codes.add(row.code.trim())) {
+        return 'Hay códigos repetidos. Corrige o elimina las filas duplicadas.';
+      }
+    }
+    return null;
   }
 }

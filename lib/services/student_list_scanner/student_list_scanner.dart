@@ -23,35 +23,74 @@ class StudentListScanner {
         InputImage.fromFilePath(photo.path),
       );
 
-      final lines = [for (final block in result.blocks) ...block.lines]
-        ..sort((a, b) {
-          return a.boundingBox.top.compareTo(b.boundingBox.top);
-        });
-
-      return parseRows(
-        lines.map((l) {
-          return l.text;
-        }),
-      );
+      return parseRecognizedLines([
+        for (final block in result.blocks) ...block.lines,
+      ]);
     } finally {
       await recognizer.close();
     }
   }
 
+  static List<ScannedRow> parseRecognizedLines(List<TextLine> source) {
+    final lines = [...source]
+      ..sort((a, b) {
+        return a.boundingBox.center.dy.compareTo(b.boundingBox.center.dy);
+      });
+    final groups = <List<TextLine>>[];
+    for (final line in lines) {
+      List<TextLine>? target;
+      for (final group in groups.reversed) {
+        final box = group.first.boundingBox;
+        final tolerance =
+            (box.height < line.boundingBox.height
+                ? box.height
+                : line.boundingBox.height) *
+            0.45;
+        if ((box.center.dy - line.boundingBox.center.dy).abs() <= tolerance) {
+          target = group;
+          break;
+        }
+      }
+      if (target == null) {
+        groups.add([line]);
+      } else {
+        target.add(line);
+      }
+    }
+    return parseRows(
+      groups.map((group) {
+        group.sort((a, b) {
+          return a.boundingBox.left.compareTo(b.boundingBox.left);
+        });
+        return group
+            .map((line) {
+              return line.text;
+            })
+            .join(' ');
+      }),
+    );
+  }
+
   static List<ScannedRow> parseRows(Iterable<String> lines) {
     final rows = <ScannedRow>[];
-    for (final line in lines) {
+    for (final raw in lines) {
+      final line = raw.replaceAll(RegExp('[–—−]'), '-');
       final match = RegExp(
-        r'(?:c[oó]d(?:igo)?\s*[:#]?\s*([A-Za-z0-9-]+)|\b(\d{4,})\b)',
+        r'(?:c[oó]d(?:igo)?\.?\s*[:#]?\s*([A-Za-z0-9]+(?:\s*-\s*[A-Za-z0-9]+)*)|\b([A-Za-z]{1,8}\s*-\s*\d+(?:-\d+)?)\b|\b(\d{4,})\b)',
         caseSensitive: false,
       ).firstMatch(line);
       String code = '';
       String nameLine = line;
       if (match != null) {
-        code = match.group(1) ?? match.group(2) ?? '';
+        code = (match.group(1) ?? match.group(2) ?? match.group(3) ?? '')
+            .replaceAll(RegExp(r'\s+'), '');
         nameLine = line.replaceRange(match.start, match.end, ' ');
       }
-      for (final name in parseNames([nameLine])) {
+      final names = parseNames([nameLine]);
+      if (names.isEmpty && code.isNotEmpty && nameLine.trim().isEmpty) {
+        rows.add(ScannedRow('', code: code));
+      }
+      for (final name in names) {
         rows.add(ScannedRow(name, code: code));
       }
     }
@@ -77,6 +116,8 @@ class StudentListScanner {
     'profesor',
     'profesora',
     'sede',
+    'código',
+    'codigo',
   };
 
   static List<String> parseNames(Iterable<String> lines) {
