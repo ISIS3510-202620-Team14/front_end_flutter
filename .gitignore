@@ -38,3 +38,7 @@ app.*.map.json
 /android/app/release
 
 .widget_preview/
+
+/web/drift_worker.dart.js.deps
+/web/drift_worker.dart.js.map
+/android/build/

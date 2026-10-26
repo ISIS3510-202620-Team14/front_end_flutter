@@ -1,3 +1,5 @@
+import '../offline/offline_runtime.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:front_end_flutter/models/user_profile/user_profile.dart';
@@ -23,7 +25,11 @@ class ProfileRepository {
       throw const ApiException(401, 'Inicia sesión para continuar.');
     }
 
-    await user.getIdToken(true).timeout(const Duration(seconds: 20));
+    if (OfflineRuntime.current?.uid == user.uid) {
+      final data = await ApiClient().request('GET', 'profile');
+      return UserProfile.fromJson(user.uid, data);
+    }
+    await user.getIdToken().timeout(const Duration(seconds: 20));
     final doc = await _firestore
         .collection('users')
         .doc(user.uid)
@@ -45,6 +51,14 @@ class ProfileRepository {
     final user = _auth.currentUser;
     if (user == null) {
       throw const ApiException(401, 'Inicia sesión para continuar.');
+    }
+    if (OfflineRuntime.current?.uid == user.uid) {
+      await ApiClient().request(
+        'PATCH',
+        'profile',
+        body: {'fullName': name.trim()},
+      );
+      return;
     }
     await _firestore.collection('users').doc(user.uid).update({
       'fullName': name.trim(),

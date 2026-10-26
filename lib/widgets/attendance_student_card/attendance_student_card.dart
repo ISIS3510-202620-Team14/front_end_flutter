@@ -108,6 +108,11 @@ class AttendanceStudentCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(detail, style: Theme.of(context).textTheme.bodyMedium),
+            if (mark != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(status),
+              ),
             const SizedBox(height: 12),
             SegmentedButton<bool>(
               key: controlsKey,

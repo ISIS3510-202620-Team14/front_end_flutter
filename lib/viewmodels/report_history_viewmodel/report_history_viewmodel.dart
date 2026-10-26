@@ -39,7 +39,7 @@ class ReportHistoryViewModel extends SafeNotifier {
         }
       }
       if (_repository.usingCache) {
-        notice = 'Sin conexión. Mostrando datos guardados en este dispositivo.';
+        notice = 'Mostrando datos guardados en este dispositivo.';
       }
       receipts.sort((Map<String, dynamic> first, Map<String, dynamic> second) {
         return (second['date'] as String).compareTo(first['date'] as String);

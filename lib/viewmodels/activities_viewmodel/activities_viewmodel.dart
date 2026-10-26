@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/services/offline/offline_runtime.dart';
 import 'package:front_end_flutter/factories/activity_creator/activity_creator.dart';
 import 'package:front_end_flutter/models/activity/activity.dart';
 import 'package:front_end_flutter/services/activity_catalog_repository/activity_catalog_repository.dart';
@@ -11,7 +12,13 @@ class ActivitiesViewModel extends SafeNotifier {
     ActivityCatalogRepository? catalog,
   }) : selectedSubject = subjects.first,
        _repository = repository ?? ActivitiesRepository(),
-       _catalog = catalog ?? ActivityCatalogRepository();
+       _catalog = catalog ?? ActivityCatalogRepository() {
+    OfflineRuntime.current?.addListener(_syncChanged);
+  }
+  void _syncChanged() {
+    if (!disposed && !loading && !saving) loadPlan();
+  }
+
   final List<String> subjects;
   final ActivitiesRepository _repository;
   final ActivityCatalogRepository _catalog;
@@ -60,6 +67,7 @@ class ActivitiesViewModel extends SafeNotifier {
 
   @override
   void dispose() {
+    OfflineRuntime.current?.removeListener(_syncChanged);
     _catalog.dispose();
     super.dispose();
   }

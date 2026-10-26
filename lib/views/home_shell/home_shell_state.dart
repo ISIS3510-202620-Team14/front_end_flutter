@@ -87,6 +87,7 @@ class _HomeShellState extends State<HomeShell> {
               teacherName: widget.session.profile!.name,
               onChangeUser: widget.session.logout,
             ),
+            const SyncPanel(),
             Expanded(
               child: IndexedStack(
                 index: _currentIndex,

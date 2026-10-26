@@ -1,3 +1,5 @@
+import '../offline/offline_runtime.dart';
+
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,6 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AttendanceDraftStore {
   AttendanceDraftStore({required this.userId});
   final String userId;
+  Future<String?> _readRaw(SharedPreferences prefs) async {
+    final runtime = OfflineRuntime.current;
+    if (runtime?.uid == userId) {
+      return runtime!.db.meta(userId, 'attendanceDrafts');
+    }
+    return prefs.getString(_key);
+  }
+
   Future<void> _writes = Future<void>.value();
 
   String get _key {
@@ -14,7 +24,7 @@ class AttendanceDraftStore {
   Future<Map<String, Map<String, bool>>> load() async {
     await _writes;
     final SharedPreferences preferences = await SharedPreferences.getInstance();
-    final String? stored = preferences.getString(_key);
+    final String? stored = await _readRaw(preferences);
     if (stored == null) {
       return {};
     }
@@ -33,7 +43,7 @@ class AttendanceDraftStore {
   Future<Map<String, Map<String, String>>> loadMetadata(String field) async {
     await _writes;
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
+    final raw = await _readRaw(prefs);
     if (raw == null) {
       return {};
     }
@@ -48,6 +58,11 @@ class AttendanceDraftStore {
   }
 
   Future<void> saveNotice(String notice) async {
+    final runtime = OfflineRuntime.current;
+    if (runtime?.uid == userId) {
+      await runtime!.db.setMeta(userId, 'attendanceNotice', notice);
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     if (!await prefs.setString('${_key}_notice', notice)) {
       throw StateError('No se pudo guardar el aviso de sincronización.');
@@ -55,6 +70,12 @@ class AttendanceDraftStore {
   }
 
   Future<String?> takeNotice() async {
+    final runtime = OfflineRuntime.current;
+    if (runtime?.uid == userId) {
+      final notice = await runtime!.db.meta(userId, 'attendanceNotice');
+      await runtime.db.setMeta(userId, 'attendanceNotice', '');
+      return notice == '' ? null : notice;
+    }
     final prefs = await SharedPreferences.getInstance();
     final notice = prefs.getString('${_key}_notice');
     if (notice != null) {
@@ -75,6 +96,11 @@ class AttendanceDraftStore {
       'failures': failures,
     });
     final Future<void> operation = _writes.then((_) async {
+      final runtime = OfflineRuntime.current;
+      if (runtime?.uid == userId) {
+        await runtime!.db.setMeta(userId, 'attendanceDrafts', snapshot);
+        return;
+      }
       final SharedPreferences preferences =
           await SharedPreferences.getInstance();
       final bool saved = await preferences.setString(_key, snapshot);

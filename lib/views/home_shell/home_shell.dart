@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/widgets/sync_panel/sync_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/viewmodels/task_tutorial_controller/task_tutorial_controller.dart';
 import 'package:front_end_flutter/widgets/tutorial_overlay/tutorial_frame.dart';

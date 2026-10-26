@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/widgets/sync_panel/sync_panel.dart';
 import 'package:front_end_flutter/widgets/teacher_metrics_panel/teacher_metrics_panel.dart';
 import 'package:front_end_flutter/viewmodels/teacher_metrics_viewmodel/teacher_metrics_viewmodel.dart';
 import 'package:front_end_flutter/widgets/brand_heading/brand_heading.dart';

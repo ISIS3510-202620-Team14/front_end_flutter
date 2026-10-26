@@ -34,6 +34,10 @@ class StudentApiAdapter {
     'comprension': 'Comprensión',
   };
 
+  int levelOrder(String subject, String level) {
+    return (_materias[subject] ?? []).indexOf(level) + 1;
+  }
+
   String subjectToBackend(String title) {
     if (title == 'Matemáticas') {
       return 'matematicas';
@@ -65,6 +69,7 @@ class StudentApiAdapter {
     }
     return Student(
       id: json['id'] as String,
+      syncState: json['syncState'] as String?,
       number: number,
       name: json['fullName'] as String,
       grade: 'Grado ${json['grade']}',

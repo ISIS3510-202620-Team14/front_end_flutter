@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'package:front_end_flutter/services/offline/offline_runtime.dart';
 
 import 'package:front_end_flutter/services/user_message/user_message.dart';
 import 'package:front_end_flutter/services/safe_notifier/safe_notifier.dart';
@@ -7,15 +7,21 @@ import 'package:front_end_flutter/services/hours_repository/hours_repository.dar
 class HorasViewModel extends SafeNotifier {
   HorasViewModel({HoursRepository? repository})
     : _repository = repository ?? HoursRepository() {
-    _retry = Timer.periodic(const Duration(seconds: 30), (_) {
-      syncPending();
-    });
+    OfflineRuntime.current?.addListener(_onSync);
   }
   final HoursRepository _repository;
-  Timer? _retry;
+  void _onSync() {
+    if (!busy && !disposed) {
+      _refreshLocal().then((_) {
+        if (!disposed) notifyListeners();
+      });
+    }
+  }
+
   bool syncing = false;
   int formRevision = 0;
   Map<String, dynamic>? currentReport;
+  String? _loadedVersion;
   DateTime date = DateTime.now().toUtc().subtract(const Duration(hours: 5));
   String? schoolId;
   double planned = 0;
@@ -87,13 +93,16 @@ class HorasViewModel extends SafeNotifier {
         }
       }
       currentReport = data;
+      _loadedVersion = data?['_version'] as String?;
       if (data != null) {
         planned = (data['plannedHours'] as num).toDouble();
         worked = (data['workedHours'] as num).toDouble();
         reason = data['reason'] as String? ?? '';
         schoolId = data['schoolId'] as String? ?? schoolId;
       }
-      if (_repository.usingCache) message = 'Sin conexión. Mostrando los reportes guardados en este dispositivo.';
+      if (_repository.usingCache) {
+        message = 'Mostrando los reportes guardados en este dispositivo.';
+      }
     } catch (error) {
       message = 'No pudimos actualizar los reportes. Mostrando únicamente los datos disponibles en este dispositivo.';
       try {
@@ -173,6 +182,7 @@ class HorasViewModel extends SafeNotifier {
     try {
       final receipt = await _repository.save(dateKey, {
         'schoolId': schoolId,
+        '_baseVersion': _loadedVersion,
         'plannedHours': plannedValue,
         'workedHours': workedValue,
         'origin': 'manual',
@@ -209,6 +219,12 @@ class HorasViewModel extends SafeNotifier {
           currentReport = report;
         }
       }
+      if (currentReport != null &&
+          currentReport!['plannedHours'] == planned &&
+          currentReport!['workedHours'] == worked &&
+          (currentReport!['reason'] ?? '') == reason) {
+        _loadedVersion = currentReport!['_version'] as String?;
+      }
     } catch (_) {
       message = 'No pudimos leer el estado local del reporte. Reintenta antes de cerrar la aplicación.';
     }
@@ -234,13 +250,7 @@ class HorasViewModel extends SafeNotifier {
   }
 
   void setActive(bool active) {
-    _retry?.cancel();
-    if (active) {
-      syncPending();
-      _retry = Timer.periodic(const Duration(seconds: 30), (_) {
-        syncPending();
-      });
-    }
+    if (active) OfflineRuntime.current?.kick();
   }
 
   Future<void> useServer() async {
@@ -261,7 +271,7 @@ class HorasViewModel extends SafeNotifier {
 
   @override
   void dispose() {
-    _retry?.cancel();
+    OfflineRuntime.current?.removeListener(_onSync);
     _repository.dispose();
     super.dispose();
   }

@@ -68,6 +68,8 @@ class _ProfileViewState extends State<ProfileView> {
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
             const BrandHeading(title: 'Mis datos'),
+            const SizedBox(height: 16),
+            const EnadPanel(child: SyncPanel(history: true)),
             const SizedBox(height: 24),
             EnadPanel(
               child: Column(

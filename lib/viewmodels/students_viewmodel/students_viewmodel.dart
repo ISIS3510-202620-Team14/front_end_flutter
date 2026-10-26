@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/services/offline/offline_runtime.dart';
 import 'package:front_end_flutter/services/user_message/user_message.dart';
 import 'package:front_end_flutter/services/api_client/api_client.dart';
 import 'package:front_end_flutter/services/analytics_service/analytics_service.dart';
@@ -10,7 +11,12 @@ import 'package:front_end_flutter/services/students_repository/students_reposito
 class StudentsViewModel extends SafeNotifier {
   StudentsViewModel({StudentsRepository? repository})
     : _service = repository ?? StudentsRepository() {
+    OfflineRuntime.current?.addListener(_syncChanged);
     _load();
+  }
+
+  void _syncChanged() {
+    if (!disposed && !updating && !_loading) _load();
   }
 
   final StudentsRepository _service;
@@ -211,6 +217,10 @@ class StudentsViewModel extends SafeNotifier {
       date,
       expectedStatus: expectedStatus,
     );
+    if (OfflineRuntime.current != null) {
+      await reload();
+      return;
+    }
     if (attendanceDate == date) {
       final current = _students.where((item) {
         return item.id == student.id;
@@ -243,6 +253,7 @@ class StudentsViewModel extends SafeNotifier {
 
   @override
   void dispose() {
+    OfflineRuntime.current?.removeListener(_syncChanged);
     _service.dispose();
     super.dispose();
   }

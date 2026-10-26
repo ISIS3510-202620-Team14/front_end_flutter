@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/services/offline/offline_runtime.dart';
 import 'package:front_end_flutter/services/user_message/user_message.dart';
 import 'package:flutter/foundation.dart';
 import 'package:front_end_flutter/models/group/group.dart';
@@ -14,7 +15,13 @@ class GruposViewModel extends SafeNotifier {
     GroupService? groupService,
     GroupingAnalyticsService? analyticsService,
   }) : _groupService = groupService ?? GroupService(),
-       analyticsService = analyticsService ?? GroupingAnalyticsService();
+       analyticsService = analyticsService ?? GroupingAnalyticsService() {
+    OfflineRuntime.current?.addListener(_syncChanged);
+  }
+  void _syncChanged() {
+    if (!disposed && !_loading && profile.schoolIds.isNotEmpty) loadGroups();
+  }
+
   final UserProfile profile;
   final StudentsViewModel students;
   final GroupService _groupService;
@@ -207,6 +214,7 @@ class GruposViewModel extends SafeNotifier {
 
   @override
   void dispose() {
+    OfflineRuntime.current?.removeListener(_syncChanged);
     _groupService.dispose();
     analyticsService.dispose();
     super.dispose();

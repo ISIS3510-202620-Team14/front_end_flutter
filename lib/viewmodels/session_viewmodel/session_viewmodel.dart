@@ -1,3 +1,5 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:front_end_flutter/services/offline/offline_runtime.dart';
 import 'package:front_end_flutter/services/auth_api/auth_api.dart';
 import 'package:front_end_flutter/models/user_profile/user_profile.dart';
 import 'package:front_end_flutter/services/profile_repository/profile_repository.dart';
@@ -19,10 +21,18 @@ class SessionViewModel extends SafeNotifier {
     error = null;
     notifyListeners();
     try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null && await OfflineRuntime.hasDownload(uid)) {
+        await OfflineRuntime.open(uid);
+      }
       profile = await _profiles.load();
       if (profile!.role != 'docente') {
         schools = [];
         return;
+      }
+      if (uid != null && OfflineRuntime.current == null) {
+        await OfflineRuntime.open(uid);
+        profile = await _profiles.load();
       }
       final available = await _schools.load();
       schools = available.where((school) {

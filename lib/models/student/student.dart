@@ -6,6 +6,7 @@ class Student {
   final String campus;
   final String code;
   final String attendance;
+  final String? syncState;
   final int number;
   final String name;
   final String grade;
@@ -25,6 +26,7 @@ class Student {
     this.campus = '',
     this.code = '',
     this.attendance = 'sin_registro',
+    this.syncState,
     required this.number,
     required this.name,
     required this.grade,
@@ -49,6 +51,7 @@ class Student {
       campus: campus,
       code: code,
       attendance: attendance ?? this.attendance,
+      syncState: syncState,
       number: number,
       name: name,
       grade: grade,

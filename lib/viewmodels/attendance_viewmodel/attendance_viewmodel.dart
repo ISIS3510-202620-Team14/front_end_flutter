@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/services/offline/offline_runtime.dart';
 import 'package:front_end_flutter/services/attendance_sync_control/attendance_sync_control.dart';
 import 'package:front_end_flutter/services/api_client/api_client.dart';
 import 'package:front_end_flutter/services/attendance_draft_store/attendance_draft_store.dart';
@@ -163,12 +164,15 @@ class AttendanceViewModel extends SafeNotifier {
     if (_draft.containsKey(student.id)) {
       return _failed.containsKey(student.id)
           ? 'No enviada: revisa y vuelve a marcar'
-          : 'Pendiente de envío';
+          : 'Borrador: pulsa Guardar';
     }
     if (markOf(student) == null) {
       return 'Sin registrar';
     }
-    return 'Enviado';
+    if (student.syncState == 'pending') return '✓ Guardado en este celular';
+    if (student.syncState == 'sending') return 'Enviando';
+    if (student.syncState == 'blocked') return 'Requiere atención';
+    return '✓✓ Confirmado por Firebase';
   }
 
   int get recordedCount {
@@ -373,6 +377,22 @@ class AttendanceViewModel extends SafeNotifier {
     final resolved = <String>[];
     var failed = 0;
     try {
+      if (OfflineRuntime.current != null) {
+        for (final student in pending) {
+          await students.attendance(
+            student,
+            values[student.id]!,
+            date,
+            expectedStatus: _base[student.id] ?? student.attendance,
+          );
+          _draft.remove(student.id);
+          _base.remove(student.id);
+          _failed.remove(student.id);
+        }
+        if (!await _persist()) return;
+        message = '✓ Asistencia guardada en este celular. Se enviará al recuperar conexión con la aplicación abierta.';
+        return;
+      }
       final remote = await students.attendanceSnapshot(date);
       final server = {
         for (final student in remote) student.id: student.attendance,

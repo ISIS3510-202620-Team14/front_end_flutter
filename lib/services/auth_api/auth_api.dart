@@ -1,3 +1,5 @@
+import '../offline/offline_runtime.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:front_end_flutter/services/api_client/api_client.dart';
 import 'package:front_end_flutter/services/analytics_service/analytics_service.dart';
@@ -39,6 +41,8 @@ class AuthApi {
   }
 
   static Future<void> logout() async {
+    OfflineRuntime.current?.stop();
+    OfflineRuntime.current = null;
     await FirebaseAuth.instance.signOut();
   }
 

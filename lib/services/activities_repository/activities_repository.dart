@@ -1,3 +1,6 @@
+import '../offline/offline_runtime.dart';
+import '../api_client/api_client.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:front_end_flutter/models/activity/activity.dart';
@@ -33,15 +36,27 @@ class ActivitiesRepository {
   }
 
   Future<List<Activity>> load(DateTime date) async {
-    final snapshot = await _firestore
-        .collection('users')
-        .doc(_uid())
-        .collection('actions')
-        .where('kind', isEqualTo: 'flutter_activity')
-        .get();
+    final List<Map<String, dynamic>> documents;
+    if (OfflineRuntime.current != null) {
+      final response = await ApiClient().request(
+        'GET',
+        'plans',
+        query: {'date': dateKey(date)},
+      );
+      documents = List<Map<String, dynamic>>.from(
+        response['activities'] as List,
+      );
+    } else {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(_uid())
+          .collection('actions')
+          .where('kind', isEqualTo: 'flutter_activity')
+          .get();
+      documents = [for (final doc in snapshot.docs) doc.data()];
+    }
     final activities = <Activity>[];
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
+    for (final data in documents) {
       if (data['date'] != dateKey(date)) {
         continue;
       }
@@ -50,7 +65,11 @@ class ActivitiesRepository {
           LibraryActivity(
             id: data['activityId'] as String,
             title: data['title'] as String,
-            subject: data['subject'] as String,
+            subject: data['subject'] == 'lectura'
+                ? 'Lectura'
+                : data['subject'] == 'matematicas'
+                ? 'Matemáticas'
+                : data['subject'] as String,
             minutes: data['minutes'] as int,
             templateId: data['templateId'] as String,
           ),
@@ -60,7 +79,11 @@ class ActivitiesRepository {
           CustomActivity(
             id: data['activityId'] as String,
             title: data['title'] as String,
-            subject: data['subject'] as String,
+            subject: data['subject'] == 'lectura'
+                ? 'Lectura'
+                : data['subject'] == 'matematicas'
+                ? 'Matemáticas'
+                : data['subject'] as String,
             minutes: data['minutes'] as int,
           ),
         );
@@ -72,6 +95,18 @@ class ActivitiesRepository {
   Future<void> save(Activity activity, DateTime date) async {
     if (activity.source != ActivitySource.library) {
       throw StateError('Solo puedes planear actividades de la biblioteca.');
+    }
+    if (OfflineRuntime.current != null) {
+      await ApiClient().request(
+        'POST',
+        'plans',
+        body: {
+          ...activity.toEventParams(),
+          'minutes': activity.minutes,
+          'date': dateKey(date),
+        },
+      );
+      return;
     }
     final uid = _uid();
     final action = _firestore

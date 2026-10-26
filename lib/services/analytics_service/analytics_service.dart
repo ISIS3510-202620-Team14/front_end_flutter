@@ -1,3 +1,6 @@
+import '../offline/offline_runtime.dart';
+import '../api_client/api_client.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,6 +23,14 @@ class AnalyticsService {
     }
 
     try {
+      if (OfflineRuntime.current?.uid == uid) {
+        await ApiClient().request(
+          'POST',
+          'events',
+          body: {...params, 'name': name},
+        );
+        return;
+      }
       await Future.wait([
         _analytics.logEvent(
           name: name,
