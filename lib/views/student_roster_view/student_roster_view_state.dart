@@ -8,6 +8,9 @@ class _StudentRosterViewState extends State<StudentRosterView> {
   int _grade = 3;
   bool _busy = false;
   String? _message;
+  List<ScannedRow>? _pendingImport;
+  String? _pendingSchool;
+  int? _pendingGrade;
   String _clientId = 'flutter_${DateTime.now().microsecondsSinceEpoch}';
 
   @override
@@ -40,24 +43,32 @@ class _StudentRosterViewState extends State<StudentRosterView> {
     super.dispose();
   }
 
-  Future<void> _import(List<ScannedRow> rows) async {
-    final String? schoolId = _schoolId;
+  Future<void> _import(
+    List<ScannedRow> rows, {
+    String? school,
+    int? grade,
+  }) async {
+    final String? schoolId = school ?? _schoolId;
     if (_busy || schoolId == null) {
       return;
     }
     setState(() {
       _busy = true;
       _message = null;
+      _pendingImport = rows;
+      _pendingSchool = schoolId;
+      _pendingGrade = grade ?? _grade;
     });
     try {
       final Map<String, dynamic> result = await widget.viewModel.importStudents(
         rows,
         schoolId: schoolId,
-        grade: _grade,
+        grade: _pendingGrade!,
       );
       if (!mounted) {
         return;
       }
+      _pendingImport = null;
       final int created = (result['created'] as List? ?? []).length;
       final int skipped = (result['skipped'] as List? ?? []).length;
       _message =
@@ -259,6 +270,18 @@ class _StudentRosterViewState extends State<StudentRosterView> {
             ),
           ),
           if (_busy) const LinearProgressIndicator(),
+          if (_pendingImport != null && !_busy)
+            OutlinedButton.icon(
+              onPressed: () {
+                _import(
+                  _pendingImport!,
+                  school: _pendingSchool,
+                  grade: _pendingGrade,
+                );
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar importación de la lista'),
+            ),
           if (_message != null)
             Padding(
               padding: const EdgeInsets.only(top: 16),

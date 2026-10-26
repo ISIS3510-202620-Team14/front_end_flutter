@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/viewmodels/task_tutorial_controller/task_tutorial_controller.dart';
 import 'package:front_end_flutter/widgets/brand_heading/brand_heading.dart';
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/viewmodels/home_viewmodel/home_viewmodel.dart';
@@ -13,8 +14,10 @@ class HoyView extends StatelessWidget {
     required this.onStudents,
     required this.onHours,
     this.schools = const [],
+    this.tutorial,
   });
   final HomeViewModel viewModel;
+  final TaskTutorialController? tutorial;
   final List<Map<String, dynamic>> schools;
   final VoidCallback onStudents;
   final VoidCallback onHours;
@@ -38,6 +41,7 @@ class HoyView extends StatelessWidget {
               ),
             ],
             QuickActionCard(
+              key: tutorial?.keyFor('hours', 0),
               action: const QuickAction(
                 icon: Icons.access_time,
                 title: 'Reportar horas',
@@ -47,6 +51,7 @@ class HoyView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             QuickActionCard(
+              key: tutorial?.keyFor('attendance', 0),
               action: const QuickAction(
                 icon: Icons.fact_check_outlined,
                 title: 'Reportar asistencia',
@@ -56,41 +61,53 @@ class HoyView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             QuickActionCard(
+              key: tutorial?.keyFor('evaluation', 0),
               action: const QuickAction(
                 icon: Icons.assessment_outlined,
                 title: 'Evaluación formativa',
                 subtitle: 'Elige Lectura o Matemáticas',
               ),
-              onTap: () {
-                Navigator.of(context).push(
+              onTap: () async {
+                tutorial?.advance('evaluation', 0);
+                await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (BuildContext context) {
                       return EvaluationMenuView(
+                        tutorial: tutorial,
                         viewModel: viewModel,
                         schools: schools,
                       );
                     },
                   ),
                 );
+                if (tutorial?.flow == 'evaluation') {
+                  tutorial?.stop();
+                }
               },
             ),
             const SizedBox(height: 16),
             QuickActionCard(
+              key: tutorial?.keyFor('activities', 0),
               action: const QuickAction(
                 icon: Icons.menu_book_outlined,
                 title: 'Planear actividades',
                 subtitle: 'Elige actividades de la biblioteca',
               ),
-              onTap: () {
-                Navigator.of(context).push(
+              onTap: () async {
+                tutorial?.advance('activities', 0);
+                await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) {
-                      return const ActivitiesView(
+                      return ActivitiesView(
+                        tutorial: tutorial,
                         subjects: HomeViewModel.subjectTitles,
                       );
                     },
                   ),
                 );
+                if (tutorial?.flow == 'activities') {
+                  tutorial?.stop();
+                }
               },
             ),
           ],

@@ -39,7 +39,9 @@ class StudentsRepository {
       'students/${student.id}',
       body: body,
     );
-    return _adapter.toDomain(data, student.number);
+    return _adapter
+        .toDomain(data, student.number)
+        .copyWith(attendance: student.attendance);
   }
 
   Future<Student> updateSex(Student student, String sex) async {
@@ -86,7 +88,9 @@ class StudentsRepository {
       'GET',
       'students/${student.id}',
     );
-    return _adapter.toDomain(confirmed, student.number);
+    return _adapter
+        .toDomain(confirmed, student.number)
+        .copyWith(attendance: student.attendance);
   }
 
   Future<Student> evaluate(
@@ -164,16 +168,33 @@ class StudentsRepository {
     );
   }
 
-  Future<void> attendance(Student student, bool present, String date) async {
+  Future<void> attendance(
+    Student student,
+    bool present,
+    String date, {
+    String? expectedStatus,
+  }) async {
     String status = 'no_vino';
     if (present) {
       status = 'vino';
     }
-    await _api.request(
+    final receipt = await _api.request(
       'PUT',
       'students/${student.id}/attendance',
-      body: {'date': date, 'status': status},
+      body: {
+        'date': date,
+        'status': status,
+        'expectedStatus': expectedStatus ?? student.attendance,
+      },
     );
+    if (receipt['id'] != student.id ||
+        receipt['date'] != date ||
+        receipt['status'] != status) {
+      throw const ApiException(
+        502,
+        'No pudimos confirmar la asistencia enviada.',
+      );
+    }
   }
 
   Future<Student> createUnexpected(

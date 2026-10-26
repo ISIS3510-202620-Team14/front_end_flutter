@@ -36,6 +36,7 @@ class Student {
   });
 
   Student copyWith({
+    String? attendance,
     String? sex,
     String? age,
     int? sample,
@@ -47,7 +48,7 @@ class Student {
       schoolId: schoolId,
       campus: campus,
       code: code,
-      attendance: attendance,
+      attendance: attendance ?? this.attendance,
       number: number,
       name: name,
       grade: grade,

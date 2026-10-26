@@ -31,11 +31,13 @@ class _StudentsViewState extends State<StudentsView> {
       grade: _grade,
     );
     _attendance.addListener(_pendingChanged);
+    widget.tutorial?.attendanceValidate = _validateGuide;
     _attendance.restore();
   }
 
   @override
   void dispose() {
+    widget.tutorial?.attendanceValidate = null;
     widget.groups?.removeListener(_syncGroup);
     _attendance.removeListener(_pendingChanged);
     _attendance.dispose();
@@ -78,6 +80,7 @@ class _StudentsViewState extends State<StudentsView> {
   void _pendingChanged() {
     WidgetsBinding.instance.addPostFrameCallback((Duration elapsed) {
       if (mounted) {
+        widget.tutorial?.refresh();
         widget.onPendingChanged?.call(_attendance.pendingCount);
         widget.onCurrentPendingChanged?.call(_attendance.currentPendingCount);
       }
@@ -94,11 +97,30 @@ class _StudentsViewState extends State<StudentsView> {
             _attendance.restoring ||
             _attendance.persisting ||
             widget.viewModel.loading;
+        Student? guidedStudent;
+        if (widget.tutorial?.active == true &&
+            widget.tutorial?.flow == 'attendance' &&
+            widget.tutorial?.step == 3) {
+          for (final student in _attendance.visibleStudents) {
+            if (_attendance.markOf(student) == null) {
+              guidedStudent = student;
+              break;
+            }
+          }
+          final name = guidedStudent?.name;
+          final id = guidedStudent?.id;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              widget.tutorial?.focusAttendance(id, name);
+            }
+          });
+        }
         final List<Student> students = _attendance.visibleStudents.where((
           Student student,
         ) {
-          return student.name.toLowerCase().contains(_query) ||
-              student.code.toLowerCase().contains(_query);
+          return student.id != guidedStudent?.id &&
+              (student.name.toLowerCase().contains(_query) ||
+                  student.code.toLowerCase().contains(_query));
         }).toList();
         students.sort((Student first, Student second) {
           final bool firstMarked = _isSettled(first);
@@ -175,6 +197,9 @@ class _StudentsViewState extends State<StudentsView> {
             ),
             Expanded(
               child: Scrollbar(
+                key: _filtersOpen && widget.tutorial?.step == 1
+                    ? widget.tutorial?.keyFor('attendance', 1)
+                    : null,
                 controller: _scroll,
                 child: RefreshIndicator(
                   onRefresh: () async {
@@ -186,10 +211,27 @@ class _StudentsViewState extends State<StudentsView> {
                     controller: _scroll,
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
+                      if (guidedStudent != null)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                            child: _studentCard(
+                              guidedStudent,
+                              locked,
+                              controlsKey: widget.tutorial?.keyFor(
+                                'attendance',
+                                3,
+                              ),
+                            ),
+                          ),
+                        ),
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                           child: EnadPanel(
+                            key: _filtersOpen
+                                ? null
+                                : widget.tutorial?.keyFor('attendance', 1),
                             child: Row(
                               children: [
                                 Expanded(
@@ -225,6 +267,17 @@ class _StudentsViewState extends State<StudentsView> {
                       ),
                       if (_filtersOpen)
                         SliverToBoxAdapter(child: _filters(context, locked)),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                          child: OutlinedButton.icon(
+                            key: widget.tutorial?.keyFor('attendance', 2),
+                            onPressed: locked ? null : _scanRoster,
+                            icon: const Icon(Icons.document_scanner_outlined),
+                            label: const Text('Escanear lista de estudiantes'),
+                          ),
+                        ),
+                      ),
                       if (locked)
                         const SliverToBoxAdapter(
                           child: LinearProgressIndicator(),
@@ -232,7 +285,20 @@ class _StudentsViewState extends State<StudentsView> {
                       if (_attendance.storageError != null)
                         SliverToBoxAdapter(
                           child: EnadPanel(
-                            child: Text(_attendance.storageError!),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(_attendance.storageError!),
+                                TextButton(
+                                  onPressed: locked
+                                      ? null
+                                      : _attendance.retryStorage,
+                                  child: const Text(
+                                    'Reintentar guardado local',
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       if (widget.viewModel.error != null)
@@ -300,7 +366,8 @@ class _StudentsViewState extends State<StudentsView> {
                           ),
                         ),
                       ),
-                      if (students.isEmpty &&
+                      if (guidedStudent == null &&
+                          students.isEmpty &&
                           !widget.viewModel.loading &&
                           widget.viewModel.error == null)
                         SliverToBoxAdapter(
@@ -351,60 +418,44 @@ class _StudentsViewState extends State<StudentsView> {
                                 ),
                                 sliver: SliverList.builder(
                                   itemCount: section.value.length,
-                                  itemBuilder: (BuildContext context, int index) {
-                                    final Student student =
-                                        section.value[index];
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 12,
-                                      ),
-                                      child: AttendanceStudentCard(
-                                        onOpen: () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute<void>(
-                                              builder: (BuildContext context) {
-                                                return StudentProfileView(
-                                                  student: student,
-                                                  students: widget.viewModel,
-                                                  schools: widget.schools,
-                                                );
-                                              },
-                                            ),
-                                          );
-                                        },
-                                        student: student,
-                                        status: _attendance.statusOf(student),
-                                        mark: _attendance.markOf(student),
-                                        onChanged: _markAction(student, locked),
-                                      ),
-                                    );
-                                  },
+                                  itemBuilder:
+                                      (BuildContext context, int index) {
+                                        final Student student =
+                                            section.value[index];
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          child: _studentCard(student, locked),
+                                        );
+                                      },
                                 ),
                               ),
                           ],
                         ),
-                      if (_attendance.visibleStudents.isNotEmpty)
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                            child: OutlinedButton.icon(
-                              onPressed: _unexpectedAction(locked),
-                              icon: const Icon(Icons.person_add_alt),
-                              label: const Text(
-                                'Agregar estudiante a la sesión',
-                              ),
-                            ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                          child: OutlinedButton.icon(
+                            key: widget.tutorial?.keyFor('attendance', 4),
+                            onPressed: _unexpectedAction(locked),
+                            icon: const Icon(Icons.person_add_alt),
+                            label: const Text('Agregar estudiante a la sesión'),
                           ),
                         ),
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
-            if (_attendance.saving ||
+            if ((widget.tutorial?.flow == 'attendance' &&
+                    widget.tutorial?.step == 5) ||
+                _attendance.saving ||
                 _attendance.currentPendingCount > 0 ||
                 _attendance.recordedCount < _attendance.visibleStudents.length)
               Material(
+                key: widget.tutorial?.keyFor('attendance', 5),
                 color: Theme.of(context).colorScheme.surface,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -432,6 +483,75 @@ class _StudentsViewState extends State<StudentsView> {
         );
       },
     );
+  }
+
+  Widget _studentCard(Student student, bool locked, {GlobalKey? controlsKey}) {
+    return AttendanceStudentCard(
+      controlsKey: controlsKey,
+      onOpen: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (context) {
+              return StudentProfileView(
+                student: student,
+                students: widget.viewModel,
+                schools: widget.schools,
+              );
+            },
+          ),
+        );
+      },
+      student: student,
+      status: _attendance.statusOf(student),
+      mark: _attendance.markOf(student),
+      onChanged: _markAction(student, locked),
+    );
+  }
+
+  String? _validateGuide(int step) {
+    if (step < 1 || step > 5) {
+      return null;
+    }
+    if (_attendance.saving ||
+        _attendance.restoring ||
+        _attendance.persisting ||
+        widget.viewModel.loading) {
+      return 'Espera a que termine de cargar la sesión.';
+    }
+    if (step == 3 || step == 5) {
+      final remaining =
+          _attendance.visibleStudents.length - _attendance.recordedCount;
+      if (remaining > 0) {
+        return 'Falta marcar a $remaining estudiantes. Revisa la lista.';
+      }
+      if (step == 5 && _attendance.visibleStudents.isEmpty) {
+        return 'No hay estudiantes. Usa Atrás para agregarlos o revisar el curso.';
+      }
+      if (step == 5 && _attendance.currentPendingCount == 0) {
+        return 'Esta asistencia ya está guardada. Puedes salir de la guía.';
+      }
+    }
+    return null;
+  }
+
+  Future<void> _scanRoster() async {
+    widget.tutorial?.openedOptional();
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          return StudentRosterView(
+            viewModel: widget.viewModel,
+            schools: widget.schools,
+            initialSchoolId: _schoolId,
+            initialGrade: _grade,
+            scanOnOpen: true,
+          );
+        },
+      ),
+    );
+    if (mounted) {
+      widget.tutorial?.refresh();
+    }
   }
 
   IconData _registeredIcon() {
@@ -719,6 +839,7 @@ class _StudentsViewState extends State<StudentsView> {
   }
 
   Future<void> _unexpected() async {
+    widget.tutorial?.openedOptional();
     final List<Student> candidates = widget.viewModel.students.where((
       Student student,
     ) {
@@ -863,6 +984,11 @@ class _StudentsViewState extends State<StudentsView> {
       if (!mounted) {
         return;
       }
+      widget.tutorial?.saved(
+        _attendance.message == 'Asistencia enviada.',
+        _attendance.message,
+        'attendance',
+      );
       _pendingChanged();
       final String? message = _attendance.message;
       if (message != null) {

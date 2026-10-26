@@ -1,6 +1,6 @@
 part of 'horas_view.dart';
 
-class _HorasViewState extends State<HorasView> {
+class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
   late final HorasViewModel _viewModel = HorasViewModel(
     repository: widget.repository,
   );
@@ -9,22 +9,42 @@ class _HorasViewState extends State<HorasView> {
   final TextEditingController _reason = TextEditingController();
   String? _reasonCategory;
   String? _reasonError;
+  int _formRevision = -1;
   @override
   void initState() {
     super.initState();
+    widget.tutorial?.validate = _validateTutorial;
+    widget.tutorial?.needsReason = () {
+      return _needsReason;
+    };
+    WidgetsBinding.instance.addObserver(this);
     if (widget.schools.isNotEmpty) {
       _viewModel.schoolId = widget.schools.first['id'] as String;
     }
     _viewModel.addListener(_sync);
+    _viewModel.addListener(_refreshTutorial);
+    _planned.addListener(_refreshTutorial);
+    _worked.addListener(_refreshTutorial);
+    _reason.addListener(_refreshTutorial);
     _viewModel.selectDate(_viewModel.date);
   }
 
+  void _refreshTutorial() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        widget.tutorial?.refresh();
+      }
+    });
+  }
+
   void _sync() {
-    if (!_viewModel.busy && _viewModel.message == null) {
+    if (!_viewModel.busy && _formRevision != _viewModel.formRevision) {
+      _formRevision = _viewModel.formRevision;
       final bool exists = _viewModel.weekReceipts.any((
         Map<String, dynamic> receipt,
       ) {
-        return receipt['date'] == _viewModel.dateKey;
+        return receipt['date'] == _viewModel.dateKey &&
+            receipt['schoolId'] == _viewModel.schoolId;
       });
       _planned.text = '';
       _worked.text = '';
@@ -41,12 +61,21 @@ class _HorasViewState extends State<HorasView> {
 
   @override
   void dispose() {
+    widget.tutorial?.validate = null;
+    widget.tutorial?.needsReason = null;
+    WidgetsBinding.instance.removeObserver(this);
     _viewModel.removeListener(_sync);
+    _viewModel.removeListener(_refreshTutorial);
     _viewModel.dispose();
     _planned.dispose();
     _worked.dispose();
     _reason.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _viewModel.setActive(state == AppLifecycleState.resumed);
   }
 
   Future<void> _date() async {
@@ -121,7 +150,8 @@ class _HorasViewState extends State<HorasView> {
     final bool exists = _viewModel.weekReceipts.any((
       Map<String, dynamic> receipt,
     ) {
-      return receipt['date'] == _viewModel.dateKey;
+      return receipt['date'] == _viewModel.dateKey &&
+          receipt['schoolId'] == _viewModel.schoolId;
     });
     if (exists) {
       final bool? replace = await showDialog<bool>(
@@ -152,6 +182,33 @@ class _HorasViewState extends State<HorasView> {
       }
     }
     await _viewModel.submitReport(_planned.text, _worked.text, reason);
+    widget.tutorial?.saved(
+      _viewModel.message == 'Reporte enviado.',
+      _viewModel.message,
+    );
+  }
+
+  String? _validateTutorial(int step) {
+    if (_viewModel.busy) return 'Espera a que termine de cargar el reporte.';
+    if (_viewModel.schoolId == null) {
+      return 'No tienes una institución disponible. Contacta a coordinación.';
+    }
+    if (step == 3 || step == 4) {
+      final text = step == 3 ? _planned.text : _worked.text;
+      final value = double.tryParse(text.replaceAll(',', '.'));
+      if (value == null || !value.isFinite || value < 0 || value > 24) {
+        return 'Escribe un número entre 0 y 24.';
+      }
+      if (step == 4 &&
+          value == 0 &&
+          double.tryParse(_planned.text.replaceAll(',', '.')) == 0) {
+        return 'Las horas programadas y realizadas no pueden ser ambas cero.';
+      }
+    }
+    if (step == 5) {
+      return HoursReason(category: _reasonCategory, detail: _reason.text).error;
+    }
+    return null;
   }
 
   ValueChanged<String?>? _selectReasonAction() {
@@ -163,6 +220,7 @@ class _HorasViewState extends State<HorasView> {
         _reasonCategory = category;
         _reasonError = null;
       });
+      _refreshTutorial();
     };
   }
 
@@ -176,7 +234,13 @@ class _HorasViewState extends State<HorasView> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([_viewModel, _planned, _worked, _reason]),
+      listenable: Listenable.merge([
+        _viewModel,
+        _planned,
+        _worked,
+        _reason,
+        if (widget.tutorial != null) widget.tutorial!,
+      ]),
       builder: (context, child) {
         final Future<void> Function()? selectDateAction;
         if (_viewModel.busy) {
@@ -191,6 +255,7 @@ class _HorasViewState extends State<HorasView> {
           selectSchoolAction = (value) {
             setState(() {
               _viewModel.schoolId = value;
+              _viewModel.selectDate(_viewModel.date);
             });
           };
         }
@@ -210,11 +275,12 @@ class _HorasViewState extends State<HorasView> {
           selectDay = _viewModel.selectDate;
         }
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          padding: EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
             const BrandHeading(title: 'Reportar horas'),
             const SizedBox(height: 24),
             EnadPanel(
+              key: widget.tutorial?.keyFor('hours', 2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -236,13 +302,40 @@ class _HorasViewState extends State<HorasView> {
               ),
             ),
             const SizedBox(height: 16),
+            if (_viewModel.currentReport != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  HoursRepository.statusLabel(_viewModel.currentReport!),
+                ),
+              ),
+            if (_viewModel.currentReport?['syncError'] != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(_viewModel.currentReport!['syncError'] as String),
+              ),
+            if (_viewModel.currentReport?['syncState'] == 'conflict') ...[
+              Text(
+                'Servidor: ${_viewModel.currentReport?['remote']?['workedHours']} h realizadas de '
+                '${_viewModel.currentReport?['remote']?['plannedHours']} h programadas. '
+                'Los campos conservan tu versión local.',
+              ),
+              TextButton(
+                onPressed: _viewModel.busy || _viewModel.syncing
+                    ? null
+                    : _viewModel.useServer,
+                child: const Text('Usar versión del servidor'),
+              ),
+            ],
             EnadPanel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (widget.schools.length > 1)
                     DropdownButtonFormField<String>(
-                      key: ValueKey(_viewModel.schoolId),
+                      key:
+                          widget.tutorial?.keyFor('hours', 1) ??
+                          ValueKey(_viewModel.schoolId),
                       initialValue: _viewModel.schoolId,
                       isExpanded: true,
                       decoration: const InputDecoration(
@@ -263,6 +356,7 @@ class _HorasViewState extends State<HorasView> {
                     ),
                   const SizedBox(height: 20),
                   TextField(
+                    key: widget.tutorial?.keyFor('hours', 3),
                     controller: _planned,
                     enabled: !_viewModel.busy,
                     keyboardType: const TextInputType.numberWithOptions(
@@ -275,6 +369,7 @@ class _HorasViewState extends State<HorasView> {
                   ),
                   const SizedBox(height: 20),
                   TextField(
+                    key: widget.tutorial?.keyFor('hours', 4),
                     controller: _worked,
                     enabled: !_viewModel.busy,
                     keyboardType: const TextInputType.numberWithOptions(
@@ -285,56 +380,64 @@ class _HorasViewState extends State<HorasView> {
                       suffixText: 'h',
                     ),
                   ),
-                  if (_needsReason) ...[
-                    const SizedBox(height: 20),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(
-                        'reason-${_viewModel.dateKey}-$_reasonCategory',
-                      ),
-                      initialValue: _reasonCategory,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Motivo'),
-                      items: [
-                        for (final String category in HoursReason.categories)
-                          DropdownMenuItem(
-                            value: category,
-                            child: Text(category),
+                  if (_needsReason)
+                    Column(
+                      key: widget.tutorial?.keyFor('hours', 5),
+                      children: [
+                        const SizedBox(height: 20),
+                        DropdownButtonFormField<String>(
+                          key: ValueKey(
+                            'reason-${_viewModel.dateKey}-$_reasonCategory',
+                          ),
+                          initialValue: _reasonCategory,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Motivo',
+                          ),
+                          items: [
+                            for (final String category
+                                in HoursReason.categories)
+                              DropdownMenuItem(
+                                value: category,
+                                child: Text(category),
+                              ),
+                          ],
+                          onChanged: _selectReasonAction(),
+                        ),
+                        if (_reasonCategory != null) ...[
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _reason,
+                            enabled: !_viewModel.busy,
+                            minLines: 2,
+                            maxLines: 4,
+                            maxLength: 480,
+                            decoration: InputDecoration(
+                              labelText: _detailLabel(),
+                              counterText: '',
+                            ),
+                            onChanged: (String value) {
+                              if (_reasonError != null) {
+                                setState(() {
+                                  _reasonError = null;
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                        if (_reasonError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              _reasonError!,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
                           ),
                       ],
-                      onChanged: _selectReasonAction(),
                     ),
-                    if (_reasonCategory != null) ...[
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _reason,
-                        enabled: !_viewModel.busy,
-                        minLines: 2,
-                        maxLines: 4,
-                        maxLength: 480,
-                        decoration: InputDecoration(
-                          labelText: _detailLabel(),
-                          counterText: '',
-                        ),
-                        onChanged: (String value) {
-                          if (_reasonError != null) {
-                            setState(() {
-                              _reasonError = null;
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                    if (_reasonError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          _reasonError!,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                  ],
                   const SizedBox(height: 12),
                   SizedBox(
+                    key: widget.tutorial?.keyFor('hours', 6),
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: submitAction,
@@ -347,6 +450,15 @@ class _HorasViewState extends State<HorasView> {
                       padding: const EdgeInsets.only(top: 12),
                       child: Text(_viewModel.message!),
                     ),
+                  TextButton.icon(
+                    onPressed: _viewModel.busy || _viewModel.syncing
+                        ? null
+                        : () {
+                            _viewModel.selectDate(_viewModel.date);
+                          },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Actualizar y enviar pendientes'),
+                  ),
                 ],
               ),
             ),

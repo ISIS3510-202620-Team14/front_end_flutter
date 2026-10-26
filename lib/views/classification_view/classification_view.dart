@@ -1,3 +1,5 @@
+import 'package:front_end_flutter/viewmodels/task_tutorial_controller/task_tutorial_controller.dart';
+import 'package:front_end_flutter/widgets/tutorial_overlay/tutorial_frame.dart';
 import 'package:front_end_flutter/widgets/enad_panel/enad_panel.dart';
 import 'package:front_end_flutter/widgets/level_badge/level_badge.dart';
 import 'package:flutter/material.dart';
@@ -20,8 +22,10 @@ class ClassificationView extends StatefulWidget {
     required this.title,
     required this.studentsViewModel,
     this.schools = const [],
+    this.tutorial,
   });
 
+  final TaskTutorialController? tutorial;
   final String title;
   final List<Map<String, dynamic>> schools;
   final StudentsViewModel studentsViewModel;

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:front_end_flutter/viewmodels/task_tutorial_controller/task_tutorial_controller.dart';
+import 'package:front_end_flutter/widgets/tutorial_overlay/tutorial_frame.dart';
 import 'package:front_end_flutter/theme/app_theme/app_theme.dart';
 import 'package:front_end_flutter/viewmodels/home_viewmodel/home_viewmodel.dart';
 import 'package:front_end_flutter/viewmodels/grupos_viewmodel/grupos_viewmodel.dart';
