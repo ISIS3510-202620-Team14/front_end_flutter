@@ -87,6 +87,7 @@ class _ActivitiesViewState extends State<ActivitiesView> {
                         saved,
                         _viewModel.error,
                         'activities',
+                        OfflineRuntime.current == null,
                       );
                       if (!context.mounted || !saved) {
                         return;

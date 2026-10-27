@@ -1,5 +1,6 @@
 part of 'home_shell.dart';
 
+/** Shows the teacher workspace and task help. */
 class _HomeShellState extends State<HomeShell> {
   final _tutorial = TaskTutorialController();
   late final HomeViewModel _viewModel;
@@ -75,6 +76,7 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   @override
+  /** Builds the workspace and account-scoped guide summary. */
   Widget build(BuildContext context) {
     return TutorialFrame(
       controller: _tutorial,
@@ -154,6 +156,7 @@ class _HomeShellState extends State<HomeShell> {
                 backgroundColor: Colors.white,
                 foregroundColor: AppTheme.ink,
                 onPressed: () async {
+                  final usage = _tutorial.usageSummary();
                   final begin = await showModalBottomSheet<String>(
                     context: context,
                     showDragHandle: true,
@@ -170,6 +173,35 @@ class _HomeShellState extends State<HomeShell> {
                                 Text(
                                   '¿Qué puedes hacer?',
                                   style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                                const SizedBox(height: 12),
+                                FutureBuilder<Map<String, Object?>>(
+                                  future: usage,
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState !=
+                                        ConnectionState.done) {
+                                      return const Text(
+                                        'Cargando el uso de tus guías…',
+                                      );
+                                    }
+                                    if (snapshot.hasError) {
+                                      return const Text(
+                                        'No pudimos leer el uso de tus guías. Cierra y vuelve a abrir Ayuda para reintentar.',
+                                      );
+                                    }
+                                    final summary = snapshot.data!;
+                                    final started = summary['started'] as int;
+                                    if (started == 0) {
+                                      return const Text(
+                                        'Tus guías en este dispositivo: todavía no has iniciado ninguna.',
+                                      );
+                                    }
+                                    return Text(
+                                      'Tus guías en este dispositivo\n'
+                                      'Más usadas: ${summary['mostUsed']}\n'
+                                      '${summary['completed']} completadas de $started iniciadas.',
+                                    );
+                                  },
                                 ),
                                 const SizedBox(height: 12),
                                 for (final entry

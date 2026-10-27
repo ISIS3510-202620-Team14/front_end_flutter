@@ -5,6 +5,7 @@ import 'package:front_end_flutter/services/api_client/api_client.dart';
 import 'package:front_end_flutter/services/analytics_service/analytics_service.dart';
 part 'auth_error.dart';
 
+/** Opens and closes the authenticated session. */
 class AuthApi {
   static Stream<User?> get changes {
     return FirebaseAuth.instance.authStateChanges();
@@ -40,9 +41,9 @@ class AuthApi {
     return token;
   }
 
+  /** Stops uploads before signing out. */
   static Future<void> logout() async {
-    OfflineRuntime.current?.stop();
-    OfflineRuntime.current = null;
+    await OfflineRuntime.clearActiveSession();
     await FirebaseAuth.instance.signOut();
   }
 

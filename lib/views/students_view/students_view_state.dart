@@ -88,6 +88,7 @@ class _StudentsViewState extends State<StudentsView> {
   }
 
   @override
+  /** Builds the attendance workspace. */
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: Listenable.merge([_attendance, widget.groups]),
@@ -211,6 +212,14 @@ class _StudentsViewState extends State<StudentsView> {
                     controller: _scroll,
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
+                      if (widget.userId != null)
+                        SliverToBoxAdapter(
+                          child: AttendanceConflictsPanel(
+                            uid: widget.userId!,
+                            date: _attendance.date,
+                            schoolId: _schoolId,
+                          ),
+                        ),
                       if (guidedStudent != null)
                         SliverToBoxAdapter(
                           child: Padding(
@@ -382,6 +391,14 @@ class _StudentsViewState extends State<StudentsView> {
                           in sections.entries)
                         SliverMainAxisGroup(
                           slivers: [
+                            if (widget.userId != null)
+                              SliverToBoxAdapter(
+                                child: AttendanceConflictsPanel(
+                                  uid: widget.userId!,
+                                  date: _attendance.date,
+                                  schoolId: _schoolId,
+                                ),
+                              ),
                             if (section.key == 'Registrados')
                               SliverToBoxAdapter(
                                 child: Padding(
@@ -975,6 +992,7 @@ class _StudentsViewState extends State<StudentsView> {
     };
   }
 
+  /** Saves marks and advances the guide after local persistence. */
   Future<void> Function()? _saveAction() {
     if (!_attendance.canSave) {
       return null;
@@ -985,9 +1003,10 @@ class _StudentsViewState extends State<StudentsView> {
         return;
       }
       widget.tutorial?.saved(
-        _attendance.message == 'Asistencia enviada.',
+        _attendance.lastSaveSucceeded,
         _attendance.message,
         'attendance',
+        _attendance.lastSaveConfirmed,
       );
       _pendingChanged();
       final String? message = _attendance.message;

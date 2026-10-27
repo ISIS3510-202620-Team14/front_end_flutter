@@ -205,17 +205,20 @@ class StudentsViewModel extends SafeNotifier {
     }
   }
 
+  /** Saves a mark with its original connectivity context. */
   Future<void> attendance(
     Student student,
     bool present,
     String date, {
     String? expectedStatus,
+    String connectivity = 'unknown',
   }) async {
     await _service.attendance(
       student,
       present,
       date,
       expectedStatus: expectedStatus,
+      connectivity: connectivity,
     );
     if (OfflineRuntime.current != null) {
       await reload();

@@ -1,14 +1,22 @@
 part of 'scanner_view.dart';
 
+/** Owns the scanner while the sheet is open. */
 class _ScannerViewState extends State<ScannerView> {
-  final _viewModel = ScannerViewModel();
+  late final _viewModel = ScannerViewModel(
+    allowProvisional: widget.allowProvisional,
+  );
 
+  /** Releases the current scan. */
   @override
   void dispose() {
+    for (final page in _viewModel.pages) {
+      ResizeImage.resizeIfNeeded(96, null, FileImage(File(page.path))).evict();
+    }
     _viewModel.dispose();
     super.dispose();
   }
 
+  /** Shows capture, page progress and editable rows. */
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
@@ -16,11 +24,14 @@ class _ScannerViewState extends State<ScannerView> {
     return ListenableBuilder(
       listenable: _viewModel,
       builder: (context, _) {
+        // # micro opt
+        final rows = _viewModel.rows;
+        final pages = _viewModel.pages;
         final status = _viewModel.status;
         final valid = _viewModel.validRows;
 
         final Future<void> Function()? scanAction;
-        if (status == ScannerStatus.scanning) {
+        if (_viewModel.capturing) {
           scanAction = null;
         } else {
           scanAction = _viewModel.scan;
@@ -32,7 +43,8 @@ class _ScannerViewState extends State<ScannerView> {
           importButtonColor = AppTheme.softInk;
         }
         final void Function()? importAction;
-        if (status == ScannerStatus.scanning ||
+        if (_viewModel.processing ||
+            _viewModel.capturing ||
             valid.isEmpty ||
             _viewModel.validationError != null) {
           importAction = null;
@@ -69,6 +81,41 @@ class _ScannerViewState extends State<ScannerView> {
                   ),
                   const SizedBox(height: 16),
                   _ScanBox(status: status, onTap: scanAction),
+                  if (pages.isNotEmpty)
+                    SizedBox(
+                      height: 86,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          for (final page in pages)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 12, top: 8),
+                              child: Row(
+                                children: [
+                                  // # micro opt
+                                  Image.file(
+                                    File(page.path),
+                                    width: 48,
+                                    height: 64,
+                                    cacheWidth: 96,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) {
+                                      return const Icon(
+                                        Icons.description_outlined,
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Página ${page.number}\n${_pageLabel(page)}',
+                                    style: text.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   Text(
                     _hint(status),
@@ -77,7 +124,7 @@ class _ScannerViewState extends State<ScannerView> {
                       color: importButtonColor,
                     ),
                   ),
-                  if (_viewModel.rows.isNotEmpty) ...[
+                  if (rows.isNotEmpty) ...[
                     if (_viewModel.validationError != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
@@ -87,19 +134,25 @@ class _ScannerViewState extends State<ScannerView> {
                     Flexible(
                       child: ListView.separated(
                         shrinkWrap: true,
-                        itemCount: _viewModel.rows.length,
+                        itemCount: rows.length,
                         separatorBuilder: (_, _) {
                           return const Divider(color: AppTheme.line, height: 1);
                         },
                         itemBuilder: (_, i) {
                           return _RowTile(
-                            key: ObjectKey(_viewModel.rows[i]),
-                            row: _viewModel.rows[i],
+                            key: ValueKey(_viewModel.rowId(i)),
+                            row: rows[i],
                             onRename: (v) {
                               return _viewModel.rename(i, v);
                             },
                             onCode: (v) {
                               return _viewModel.setCode(i, v);
+                            },
+                            onGrade: (v) {
+                              _viewModel.setGrade(i, v);
+                            },
+                            onAge: (v) {
+                              _viewModel.setAge(i, v);
                             },
                             onSex: (s) {
                               return _viewModel.setSex(i, s);
@@ -148,13 +201,30 @@ class _ScannerViewState extends State<ScannerView> {
     );
   }
 
+  /** Names the page's processing state. */
+  String _pageLabel(ScannerPage page) {
+    switch (page.state) {
+      case ScannerPageState.queued:
+        return 'En cola';
+      case ScannerPageState.reading:
+        return 'Leyendo…';
+      case ScannerPageState.ready:
+        return '${page.count} estudiantes';
+      case ScannerPageState.failed:
+        return 'No se pudo leer';
+    }
+  }
+
+  /** Explains the next action. */
   String _hint(ScannerStatus status) {
     switch (status) {
       case ScannerStatus.scanning:
-        return 'Leyendo nombres…';
+        return 'Leyendo páginas… Puedes tomar otra foto mientras terminamos.';
       case ScannerStatus.review:
-        return 'Completa los códigos reales y revisa los nombres antes de importar. Toca uno para '
-            'corregirlo. Puedes escanear otra página.';
+        return widget.allowProvisional
+            ? 'Revisa los datos antes de importar. Los códigos vacíos serán provisionales; coordinación debe completar el código oficial.'
+            : 'Completa los códigos reales y revisa los nombres antes de importar. Toca uno para '
+                  'corregirlo. Puedes escanear otra página.';
       case ScannerStatus.empty:
         return 'No encontramos nombres. Toma la foto de frente, con buena luz.';
       case ScannerStatus.error:

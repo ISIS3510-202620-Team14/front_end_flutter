@@ -1,11 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:front_end_flutter/theme/app_theme/app_theme.dart';
 import 'package:front_end_flutter/viewmodels/scanner_viewmodel/scanner_viewmodel.dart';
 part 'scanner_view_state.dart';
 part 'scan_box.dart';
 part 'row_tile.dart';
 
-Future<List<ScannedRow>?> showStudentScanner(BuildContext context) {
+/** Opens the roster review sheet. */
+Future<List<ScannedRow>?> showStudentScanner(
+  BuildContext context, {
+  bool allowProvisional = false,
+}) {
   return showModalBottomSheet<List<ScannedRow>>(
     context: context,
     isScrollControlled: true,
@@ -14,14 +21,18 @@ Future<List<ScannedRow>?> showStudentScanner(BuildContext context) {
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (_) {
-      return const ScannerView();
+      return ScannerView(allowProvisional: allowProvisional);
     },
   );
 }
 
+/** Captures and reviews roster pages. */
 class ScannerView extends StatefulWidget {
-  const ScannerView({super.key});
+  /** Creates the scanner sheet. */
+  const ScannerView({super.key, this.allowProvisional = false});
+  final bool allowProvisional;
 
+  /** Creates the view state. */
   @override
   State<ScannerView> createState() {
     return _ScannerViewState();

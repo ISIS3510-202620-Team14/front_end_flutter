@@ -13,9 +13,20 @@ import 'package:uuid/uuid.dart';
 import '../api_client/api_client.dart';
 import 'offline_database.dart';
 import 'offline_projection.dart';
+import 'background_sync.dart';
+import '../attendance_conflicts/attendance_conflicts.dart';
 
+/** Coordinates local changes and server receipts. */
 class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
-  OfflineRuntime(this.uid, this.db, this.api, {this.sessionValid});
+  /** Creates a foreground or background coordinator. */
+  OfflineRuntime(
+    this.uid,
+    this.db,
+    this.api, {
+    this.sessionValid,
+    this.background = false,
+  });
+  final bool background;
   final bool Function()? sessionValid;
   final String uid;
   final OfflineDatabase db;
@@ -37,16 +48,19 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
   Future<void>? _download;
   int _nextDownload = 0;
   final Random _random = Random();
+  /** Checks the current account. */
   bool get ownsSession {
     return (sessionValid?.call() ??
             (FirebaseAuth.instance.currentUser?.uid == uid)) &&
         identical(current, this);
   }
 
+  /** Checks whether the account has downloaded data. */
   static Future<bool> hasDownload(String uid) async {
     return await _database.meta(uid, 'downloadedAt') != null;
   }
 
+  /** Opens the local session and starts foreground sync. */
   static Future<OfflineRuntime> open(String uid) async {
     if (current?.uid == uid) {
       if (!current!.ready) await current!.download();
@@ -59,11 +73,13 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
       ApiClient(
         localFirst: false,
         tokenProvider: () async {
-          if (FirebaseAuth.instance.currentUser?.uid != uid) {
+          if (FirebaseAuth.instance.currentUser?.uid != uid ||
+              await _database.meta('', 'activeUid') != uid) {
             throw const ApiException(401, 'La sesión cambió.');
           }
           final token = await AuthApi.getIdToken();
-          if (FirebaseAuth.instance.currentUser?.uid != uid) {
+          if (FirebaseAuth.instance.currentUser?.uid != uid ||
+              await _database.meta('', 'activeUid') != uid) {
             throw const ApiException(401, 'La sesión cambió.');
           }
           return token;
@@ -72,6 +88,10 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     );
     current = runtime;
     try {
+      if (FirebaseAuth.instance.currentUser?.uid != uid) {
+        throw const ApiException(401, 'La sesión cambió.');
+      }
+      await runtime.db.setMeta('', 'activeUid', uid);
       await runtime._migrate();
       runtime.downloadedAt = await runtime.db.meta(uid, 'downloadedAt');
       runtime.ready = runtime.downloadedAt != null;
@@ -88,6 +108,7 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
         runtime.kick();
       });
       await runtime.refreshCounts();
+      await runtime.scheduleBackground();
       runtime.kick();
       return runtime;
     } catch (_) {
@@ -97,6 +118,7 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /** Stops foreground listeners. */
   void stop() {
     active = false;
     _timer?.cancel();
@@ -104,7 +126,28 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
   }
 
+  /** Revokes background access before signing out. */
+  static Future<void> clearActiveSession() async {
+    final uid = current?.uid ?? FirebaseAuth.instance.currentUser?.uid;
+    await _database.setMeta('', 'activeUid', '');
+    current?.stop();
+    current = null;
+    if (uid != null) await BackgroundSync.cancel(uid);
+  }
+
+  /** Keeps local saves valid when scheduling is unavailable. */
+  Future<void> scheduleBackground() async {
+    if (background || pending == 0) return;
+    try {
+      await BackgroundSync.schedule(uid);
+    } catch (_) {
+      message = 'Guardado en este celular. Abre la app para sincronizar.';
+      notifyListeners();
+    }
+  }
+
   @override
+  /** Pauses work when the app leaves the foreground. */
   void didChangeAppLifecycleState(AppLifecycleState state) {
     active = state == AppLifecycleState.resumed;
     if (active) {
@@ -112,6 +155,7 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /** Retries pending work after a network change. */
   void connectionReturned() {
     if (!active || !ownsSession) return;
     _nextDownload = 0;
@@ -131,6 +175,7 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
+  /** Preserves reports and drafts from preferences. */
   Future<void> _migrate() async {
     if (await db.meta(uid, 'migration') != null) return;
     final prefs = await SharedPreferences.getInstance();
@@ -172,6 +217,7 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
+  /** Adds one durable operation. */
   Future<String> _insert(
     String key,
     String action,
@@ -197,6 +243,7 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     return id;
   }
 
+  /** Saves a local change before sending it. */
   Future<String> enqueue(
     String key,
     String action,
@@ -215,6 +262,8 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
     late String id;
+    final values = Map<String, dynamic>.from(body);
+    final attendanceContext = values.remove('_attendanceContext');
     await db.transaction(() async {
       final records = await db.records(uid);
       final history = await db.history(uid);
@@ -228,18 +277,27 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
       id = await _insert(
         key,
         action,
-        body,
+        values,
         dependencies,
         useExpectedVersion
             ? expectedVersion
             : records[key]?['version'] as String?,
       );
+      if (action == 'attendance' && attendanceContext is Map) {
+        await db.setMeta(
+          uid,
+          'attendanceContext:$id',
+          jsonEncode(attendanceContext),
+        );
+      }
     });
     await refreshCounts();
+    await scheduleBackground();
     kick();
     return id;
   }
 
+  /** Reads downloaded data with pending changes. */
   Future<Map<String, dynamic>> data() async {
     return db.transaction(() async {
       return OfflineProjection.materialize(
@@ -249,6 +307,7 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
+  /** Updates visible sync counts. */
   Future<void> refreshCounts() async {
     final history = await db.history(uid);
     pending = history.where((op) {
@@ -260,12 +319,14 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /** Shares one active download. */
   Future<void> download() {
     return _download ??= _downloadAll().whenComplete(() {
       _download = null;
     });
   }
 
+  /** Replaces the cache only after a complete download. */
   Future<void> _downloadAll() async {
     if (!ownsSession) return;
     downloading = true;
@@ -347,12 +408,14 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /** Starts one foreground sync cycle. */
   void kick() {
     if (active && ownsSession && !running && !paused && !downloading) {
       unawaited(synchronize());
     }
   }
 
+  /** Retries pending and blocked operations. */
   Future<void> retry() async {
     paused = false;
     await db.customStatement(
@@ -362,6 +425,7 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     await synchronize();
   }
 
+  /** Sends independent records with a shared database lease. */
   Future<void> synchronize() async {
     if (running || !active || !ownsSession || paused || downloading) return;
     running = true;
@@ -436,7 +500,8 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
       }
       await refreshCounts();
       final last = DateTime.tryParse(downloadedAt ?? '');
-      if (pending == 0 &&
+      if (!background &&
+          pending == 0 &&
           active &&
           ownsSession &&
           !paused &&
@@ -451,10 +516,10 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
       running = false;
       if (acquired) {
         try {
-          await db.customStatement('DELETE FROM leases WHERE uid=? AND owner=?', [
-            uid,
-            _owner,
-          ]);
+          await db.customStatement(
+            'DELETE FROM leases WHERE uid=? AND owner=?',
+            [uid, _owner],
+          );
         } catch (_) {
           message = 'No pudimos acceder al almacenamiento. Intenta de nuevo.';
         }
@@ -462,8 +527,14 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /** Stores a verified server receipt atomically. */
   Future<void> _send(Map<String, dynamic> op) async {
     if (!ownsSession || !active || paused) return;
+    if ((background || sessionValid == null) &&
+        await db.meta('', 'activeUid') != uid) {
+      paused = true;
+      return;
+    }
     await db.customStatement(
       "UPDATE operations SET state='sending' WHERE uid=? AND id=?",
       [uid, op['id']],
@@ -487,6 +558,7 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
         throw const ApiException(502, 'No pudimos confirmar el envío.');
       }
       await db.transaction(() async {
+        await AttendanceConflicts(db, uid).recordOutcome(op, result);
         for (final raw in result['records'] as List) {
           final record = Map<String, dynamic>.from(raw as Map);
           await db.putRecord(uid, record);

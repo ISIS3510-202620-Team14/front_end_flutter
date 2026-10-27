@@ -6,7 +6,9 @@ import 'package:front_end_flutter/services/profile_repository/profile_repository
 import 'package:front_end_flutter/services/schools_repository/schools_repository.dart';
 import 'package:front_end_flutter/services/safe_notifier/safe_notifier.dart';
 
+/** Loads data only for the current account. */
 class SessionViewModel extends SafeNotifier {
+  /** Accepts repositories for session loading. */
   SessionViewModel({ProfileRepository? profiles, SchoolsRepository? schools})
     : _profiles = profiles ?? ProfileRepository(),
       _schools = schools ?? SchoolsRepository();
@@ -16,45 +18,68 @@ class SessionViewModel extends SafeNotifier {
   List<Map<String, dynamic>> schools = [];
   bool loading = true;
   String? error;
+  int _loadId = 0;
+  /** Ignores results from replaced sessions or older loads. */
   Future<void> load() async {
+    final request = ++_loadId;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     loading = true;
     error = null;
+    profile = null;
+    schools = [];
     notifyListeners();
+    /** Checks that this load still belongs to the active account. */
+    bool isCurrent() {
+      return !disposed &&
+          request == _loadId &&
+          FirebaseAuth.instance.currentUser?.uid == uid;
+    }
+
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid != null && await OfflineRuntime.hasDownload(uid)) {
+      if (uid == null) throw StateError('No active session');
+      if (await OfflineRuntime.hasDownload(uid)) {
+        if (!isCurrent()) return;
         await OfflineRuntime.open(uid);
       }
-      profile = await _profiles.load();
-      if (profile!.role != 'docente') {
-        schools = [];
+      if (!isCurrent()) return;
+      var loaded = await _profiles.load();
+      if (!isCurrent()) return;
+      if (loaded.role != 'docente') {
+        profile = loaded;
         return;
       }
-      if (uid != null && OfflineRuntime.current == null) {
+      if (OfflineRuntime.current?.uid != uid) {
         await OfflineRuntime.open(uid);
-        profile = await _profiles.load();
+        if (!isCurrent()) return;
+        loaded = await _profiles.load();
       }
+      if (!isCurrent()) return;
       final available = await _schools.load();
+      if (!isCurrent()) return;
       schools = available.where((school) {
-        return profile!.schoolIds.contains(school['id']);
+        return loaded.schoolIds.contains(school['id']);
       }).toList();
-      final UserProfile loadedProfile = profile!;
       profile = UserProfile(
-        uid: loadedProfile.uid,
-        name: loadedProfile.name,
-        email: loadedProfile.email,
-        role: loadedProfile.role,
-        active: loadedProfile.active,
-        campusIds: loadedProfile.campusIds,
+        uid: loaded.uid,
+        name: loaded.name,
+        email: loaded.email,
+        role: loaded.role,
+        active: loaded.active,
+        campusIds: loaded.campusIds,
         schoolIds: schools.map((Map<String, dynamic> school) {
           return school['id'] as String;
         }).toList(),
       );
     } catch (_) {
-      error = 'No pudimos cargar tu perfil e instituciones. Intenta de nuevo.';
+      if (isCurrent()) {
+        error =
+            'No pudimos cargar tu perfil e instituciones. Intenta de nuevo.';
+      }
     } finally {
-      loading = false;
-      notifyListeners();
+      if (isCurrent()) {
+        loading = false;
+        notifyListeners();
+      }
     }
   }
 

@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:front_end_flutter/services/offline/offline_runtime.dart';
 import 'package:front_end_flutter/services/attendance_sync_control/attendance_sync_control.dart';
 import 'package:front_end_flutter/services/api_client/api_client.dart';
@@ -6,22 +7,25 @@ import 'package:front_end_flutter/models/student/student.dart';
 import 'package:front_end_flutter/services/safe_notifier/safe_notifier.dart';
 import 'package:front_end_flutter/viewmodels/students_viewmodel/students_viewmodel.dart';
 
+/** Keeps attendance drafts and save outcomes. */
 class AttendanceViewModel extends SafeNotifier {
+  /** Binds the session roster and draft storage. */
   AttendanceViewModel({
     required this.students,
     this.schoolId,
     this.grade = 3,
     this.draftStore,
+    this.connectivityAtMark,
   }) {
     students.addListener(notifyListeners);
   }
   final StudentsViewModel students;
   final AttendanceDraftStore? draftStore;
+  final Future<String> Function()? connectivityAtMark;
   bool restoring = false;
   bool _restoreFailed = false;
   bool persisting = false;
   String? storageError;
-
   List<String> get pendingDates {
     final List<String> dates = [];
     for (final MapEntry<String, Map<String, bool>> entry in _drafts.entries) {
@@ -60,6 +64,7 @@ class AttendanceViewModel extends SafeNotifier {
       _drafts.addAll(await draftStore!.load());
       _bases.addAll(await draftStore!.loadMetadata('bases'));
       _failures.addAll(await draftStore!.loadMetadata('failures'));
+      _connectivity.addAll(await draftStore!.loadMetadata('connectivity'));
       _restoreFailed = false;
       storageError = null;
       try {
@@ -81,7 +86,12 @@ class AttendanceViewModel extends SafeNotifier {
     persisting = true;
     notifyListeners();
     try {
-      await draftStore!.save(_drafts, bases: _bases, failures: _failures);
+      await draftStore!.save(
+        _drafts,
+        bases: _bases,
+        failures: _failures,
+        connectivity: _connectivity,
+      );
       storageError = null;
       return true;
     } catch (_) {
@@ -107,6 +117,18 @@ class AttendanceViewModel extends SafeNotifier {
   final Map<String, Map<String, bool>> _drafts = {};
   final Map<String, Map<String, String>> _bases = {};
   final Map<String, Map<String, String>> _failures = {};
+  final Map<String, Map<String, String>> _connectivity = {};
+  /** Captures the network signal when the teacher marks a student. */
+  Future<String> _readConnectivity() async {
+    try {
+      if (connectivityAtMark != null) return await connectivityAtMark!();
+      final result = await Connectivity().checkConnectivity();
+      return result.contains(ConnectivityResult.none) ? 'offline' : 'online';
+    } catch (_) {
+      return 'unknown';
+    }
+  }
+
   Map<String, String> get _base {
     return _bases.putIfAbsent(date, () {
       return {};
@@ -129,13 +151,14 @@ class AttendanceViewModel extends SafeNotifier {
   String? schoolId;
   int grade;
   bool saving = false;
+  bool lastSaveSucceeded = false;
+  bool lastSaveConfirmed = false;
   String? message;
   String date = DateTime.now()
       .toUtc()
       .subtract(const Duration(hours: 5))
       .toIso8601String()
       .substring(0, 10);
-
   List<Student> get visibleStudents {
     return students.students.where((Student student) {
       return !student.withdrawn &&
@@ -274,6 +297,7 @@ class AttendanceViewModel extends SafeNotifier {
     notifyListeners();
   }
 
+  /** Updates a draft with its marking-time network signal. */
   Future<void> mark(String id, bool present) async {
     if (saving || restoring || persisting || _restoreFailed) {
       return;
@@ -286,6 +310,12 @@ class AttendanceViewModel extends SafeNotifier {
     final student = visibleStudents.firstWhere((student) {
       return student.id == id;
     });
+    final markedDate = date;
+    final network = await _readConnectivity();
+    if (disposed || saving || date != markedDate) return;
+    _connectivity.putIfAbsent(date, () {
+      return {};
+    })[id] = network;
     _failed.remove(id);
     if (student.attendance == (present ? 'vino' : 'no_vino')) {
       _draft.remove(id);
@@ -301,6 +331,7 @@ class AttendanceViewModel extends SafeNotifier {
     notifyListeners();
   }
 
+  /** Marks the selected roster with one network snapshot. */
   Future<void> markAllPresent(List<String> ids) async {
     if (saving ||
         restoring ||
@@ -310,9 +341,16 @@ class AttendanceViewModel extends SafeNotifier {
         students.error != null) {
       return;
     }
+    final markedDate = date;
+    final network = await _readConnectivity();
+    if (disposed || saving || date != markedDate) return;
+    final contexts = _connectivity.putIfAbsent(date, () {
+      return {};
+    });
     final Set<String> selected = ids.toSet();
     for (final Student student in visibleStudents) {
       if (selected.contains(student.id)) {
+        contexts[student.id] = network;
         _base.putIfAbsent(student.id, () {
           return student.attendance;
         });
@@ -350,7 +388,10 @@ class AttendanceViewModel extends SafeNotifier {
     }
   }
 
+  /** Saves marks and distinguishes local storage from server confirmation. */
   Future<void> save() async {
+    lastSaveSucceeded = false;
+    lastSaveConfirmed = false;
     if (saving) {
       message = 'Ya hay una sincronización en curso. Intenta de nuevo cuando termine.';
       notifyListeners();
@@ -384,13 +425,15 @@ class AttendanceViewModel extends SafeNotifier {
             values[student.id]!,
             date,
             expectedStatus: _base[student.id] ?? student.attendance,
+            connectivity: _connectivity[date]?[student.id] ?? 'unknown',
           );
           _draft.remove(student.id);
           _base.remove(student.id);
           _failed.remove(student.id);
         }
         if (!await _persist()) return;
-        message = '✓ Asistencia guardada en este celular. Se enviará al recuperar conexión con la aplicación abierta.';
+        lastSaveSucceeded = true;
+        message = '✓ Asistencia guardada en este celular. Se enviará al recuperar conexión.';
         return;
       }
       final remote = await students.attendanceSnapshot(date);
@@ -418,6 +461,7 @@ class AttendanceViewModel extends SafeNotifier {
                 values[student.id]!,
                 date,
                 expectedStatus: current,
+                connectivity: _connectivity[date]?[student.id] ?? 'unknown',
               );
               resolved.add(student.id);
             } catch (error) {
@@ -487,6 +531,8 @@ class AttendanceViewModel extends SafeNotifier {
         message =
             'Quedaron $failed marcas sin enviar. Revisa la conexión; si una marca falló, revísala y vuelve a marcarla.';
       } else {
+        lastSaveSucceeded = true;
+        lastSaveConfirmed = true;
         message = 'Asistencia enviada.';
         try {
           await draftStore?.takeNotice();

@@ -83,7 +83,12 @@ class _ClassificationViewState extends State<ClassificationView> {
       },
       onEvaluate: (String level, String sex, String age, int sample) async {
         await _viewModel.evaluate(student.number, level, sex, age, sample);
-        widget.tutorial?.saved(true, null, 'evaluation');
+        widget.tutorial?.saved(
+          true,
+          null,
+          'evaluation',
+          OfflineRuntime.current == null,
+        );
       },
       levels: _viewModel.subjectLevels,
       withdrawnLevel: ClassificationViewModel.withdrawnLevel,

@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/widgets/attendance_conflicts_panel/attendance_conflicts_panel.dart';
 import 'package:front_end_flutter/viewmodels/task_tutorial_controller/task_tutorial_controller.dart';
 import 'package:front_end_flutter/views/student_profile_view/student_profile_view.dart';
 import 'package:front_end_flutter/theme/app_theme/app_theme.dart';

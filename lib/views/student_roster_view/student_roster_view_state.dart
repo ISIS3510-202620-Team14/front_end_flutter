@@ -91,8 +91,12 @@ class _StudentRosterViewState extends State<StudentRosterView> {
     }
   }
 
+  /** Allows provisional codes when scanning from attendance. */
   Future<void> _scan() async {
-    final List<ScannedRow>? rows = await showStudentScanner(context);
+    final List<ScannedRow>? rows = await showStudentScanner(
+      context,
+      allowProvisional: widget.scanOnOpen,
+    );
     if (rows != null && mounted) {
       await _import(rows);
     }

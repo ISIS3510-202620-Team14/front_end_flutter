@@ -1,6 +1,11 @@
+import 'dart:convert';
+
+import 'package:front_end_flutter/services/offline/offline_runtime.dart';
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import 'package:front_end_flutter/services/analytics_service/analytics_service.dart';
 
+/** Guides a real teacher task. */
 class TaskTutorialController extends ChangeNotifier {
   final List<GlobalKey> targets = List.generate(7, (index) {
     return GlobalKey();
@@ -33,7 +38,7 @@ class TaskTutorialController extends ChangeNotifier {
       'Marca la asistencia',
       'Agrega a quien falte (opcional)',
       'Guarda la sesión',
-      '¡Asistencia enviada!',
+      '¡Asistencia guardada!',
     ],
     'evaluation': [
       'Abre Evaluación formativa',
@@ -56,8 +61,8 @@ class TaskTutorialController extends ChangeNotifier {
       'Si necesitas registrar estudiantes desde una lista, abre el escáner y revisa los datos. Importa identificación; no marca asistencia. Puedes omitirlo.',
       'En cada ficha elige Asistió o No asistió. Revisa también los registrados. Si la lista está vacía, continúa para agregar estudiantes.',
       'Si alguien no aparece, pulsa Agregar estudiante a la sesión. Puedes elegirlo o registrarlo. Si están todos, omite este paso.',
-      'Pulsa Guardar para enviar las marcas. La guía termina cuando se confirma el envío.',
-      'La asistencia de esta sesión se envió correctamente.',
+      'Pulsa Guardar. Las marcas quedarán en este celular y se enviarán al recuperar conexión.',
+      'La asistencia de esta sesión quedó guardada.',
     ],
     'evaluation': [
       'Toca el botón resaltado.',
@@ -155,7 +160,7 @@ class TaskTutorialController extends ChangeNotifier {
   bool Function()? needsReason;
   Future<void> Function(String, Map<String, Object>)? eventLogger;
   String _run = '';
-
+  bool _confirmed = false;
   bool get active {
     return step >= 0;
   }
@@ -164,7 +169,9 @@ class TaskTutorialController extends ChangeNotifier {
     return step == lastStep;
   }
 
+  /** Describes the current step without claiming an upload. */
   String get title {
+    if (complete && !_confirmed) return '¡Guardado en este celular!';
     if (flow != 'hours') {
       return steps[flow]![step];
     }
@@ -175,12 +182,16 @@ class TaskTutorialController extends ChangeNotifier {
       'Horas programadas',
       'Horas realizadas',
       'Cuéntanos el motivo',
-      'Envía tu reporte',
-      '¡Reporte enviado!',
+      'Guarda tu reporte',
+      '¡Reporte guardado!',
     ][step];
   }
 
+  /** Explains the step and the actual save status. */
   String get instruction {
+    if (complete && !_confirmed) {
+      return 'Tu tarea quedó guardada en este celular. Se enviará al recuperar conexión. Puedes revisar su estado en Mis datos.';
+    }
     if (flow == 'attendance' && step == 3 && attendanceStudentName != null) {
       return 'Para $attendanceStudentName, elige Asistió o No asistió. Después te mostraremos al siguiente estudiante pendiente.';
     }
@@ -194,17 +205,19 @@ class TaskTutorialController extends ChangeNotifier {
       'Escribe cuántas horas tenías programadas para ese día.',
       'Escribe cuántas horas realizaste. Usa los datos reales de tu jornada.',
       'Selecciona por qué realizaste menos horas. Si eliges Otro, escribe una explicación.',
-      'Pulsa Guardar. Se enviarán datos reales a tu institución. Si ya existe un reporte, tendrás que confirmar su actualización.',
+      'Pulsa Guardar para conservar tu reporte. Se enviará al recuperar conexión. Si ya existe, confirma su actualización.',
       'Terminaste el tutorial de Horas. Puedes volver a consultarlo desde Ayuda.',
     ][step];
   }
 
+  /** Starts a supported tutorial. */
   void start(int schools, [String id = 'hours']) {
-    if (active) return;
+    if (active || !labels.containsKey(id)) return;
+    _confirmed = false;
     optionalOpened = false;
     flow = id;
     schoolCount = schools;
-    _run = DateTime.now().microsecondsSinceEpoch.toString();
+    _run = const Uuid().v4();
     step = 0;
     feedback = null;
     _record('tutorial_started');
@@ -236,9 +249,16 @@ class TaskTutorialController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void saved(bool sent, String? message, [String id = 'hours']) {
+  /** Finishes only after storage succeeds. */
+  void saved(
+    bool success,
+    String? message, [
+    String id = 'hours',
+    bool confirmed = true,
+  ]) {
     if (flow != id || step != lastStep - 1) return;
-    if (sent) {
+    if (success) {
+      _confirmed = confirmed;
       _record('tutorial_step_completed');
       step = lastStep;
       feedback = null;
@@ -246,7 +266,7 @@ class TaskTutorialController extends ChangeNotifier {
     } else {
       feedback =
           message ??
-          'No se confirmó el envío. Revisa la conexión y vuelve a intentarlo.';
+          'No se pudo guardar. Revisa los datos y vuelve a intentarlo.';
     }
     notifyListeners();
   }
@@ -259,6 +279,81 @@ class TaskTutorialController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /** Reads guide usage saved for this account on this device. */
+  Future<Map<String, Object?>> usageSummary() async {
+    final runtime = OfflineRuntime.current;
+    if (runtime == null || !runtime.ownsSession) {
+      throw StateError('No active local session');
+    }
+    final operations = await runtime.db.history(runtime.uid);
+    if (!identical(OfflineRuntime.current, runtime) || !runtime.ownsSession) {
+      throw StateError('Session changed');
+    }
+    return summarizeUsage(operations);
+  }
+
+  /** Counts each saved tutorial run once. */
+  static Map<String, Object?> summarizeUsage(
+    Iterable<Map<String, dynamic>> operations,
+  ) {
+    final started = <String, Set<String>>{};
+    final completed = <String, Set<String>>{};
+    for (final operation in operations) {
+      if (['failed', 'conflict'].contains(operation['state']) ||
+          operation['action'] != 'create' ||
+          !(operation['key'] as String? ?? '').startsWith('events/')) {
+        continue;
+      }
+      final event = jsonDecode(operation['body'] as String) as Map;
+      final flow = event['tutorial_id'];
+      final run = event['run_id'];
+      if (flow is! String ||
+          !labels.containsKey(flow) ||
+          run is! String ||
+          run.isEmpty) {
+        continue;
+      }
+      final name = event['name'];
+      if (name == 'tutorial_started') {
+        started
+            .putIfAbsent(flow, () {
+              return <String>{};
+            })
+            .add(run);
+      } else if (name == 'tutorial_completed') {
+        completed
+            .putIfAbsent(flow, () {
+              return <String>{};
+            })
+            .add(run);
+      }
+    }
+    var totalStarted = 0;
+    var totalCompleted = 0;
+    var mostStarts = 0;
+    final mostUsed = <String>[];
+    for (final entry in labels.entries) {
+      final runs = started[entry.key] ?? <String>{};
+      totalStarted += runs.length;
+      totalCompleted += runs
+          .intersection(completed[entry.key] ?? <String>{})
+          .length;
+      if (runs.length > mostStarts) {
+        mostStarts = runs.length;
+        mostUsed.clear();
+      }
+      if (runs.isNotEmpty && runs.length == mostStarts) {
+        mostUsed.add(entry.value);
+      }
+    }
+    return {
+      'started': totalStarted,
+      'completed': totalCompleted,
+      'mostUsed': mostUsed.join(', '),
+    };
+  }
+
+  /** Records the guide event without interrupting the task. */
   Future<void> _record(String name) async {
     try {
       final data = <String, Object>{

@@ -129,6 +129,7 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
     return true;
   }
 
+  /** Saves the report before completing the guide. */
   Future<void> _submit() async {
     if (!_canSubmit) {
       return;
@@ -183,8 +184,10 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
     }
     await _viewModel.submitReport(_planned.text, _worked.text, reason);
     widget.tutorial?.saved(
-      _viewModel.message == 'Reporte enviado.',
+      _viewModel.lastSaveSucceeded,
       _viewModel.message,
+      'hours',
+      _viewModel.lastSaveConfirmed,
     );
   }
 

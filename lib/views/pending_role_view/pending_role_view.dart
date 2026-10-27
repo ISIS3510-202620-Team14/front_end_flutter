@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+
+import '../attendance_conflicts_report/attendance_conflicts_report.dart';
+
 import 'package:front_end_flutter/widgets/enad_panel/enad_panel.dart';
 
+/** Shows available tools for non-teacher roles. */
 class PendingRoleView extends StatelessWidget {
+  /** Receives the current role and logout action. */
   const PendingRoleView({
     super.key,
     required this.role,
@@ -21,6 +26,7 @@ class PendingRoleView extends StatelessWidget {
   }
 
   @override
+  /** Opens only the reports available to this role. */
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
@@ -44,6 +50,22 @@ class PendingRoleView extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 24),
+                  if (role == 'admin') ...[
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) {
+                              return const AttendanceConflictsReport();
+                            },
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.assignment_late_outlined),
+                      label: const Text('Conflictos de asistencia'),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   OutlinedButton(
                     onPressed: onLogout,
                     child: const Text('Cerrar sesión'),

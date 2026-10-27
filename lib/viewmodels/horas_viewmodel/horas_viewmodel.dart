@@ -1,10 +1,11 @@
 import 'package:front_end_flutter/services/offline/offline_runtime.dart';
-
 import 'package:front_end_flutter/services/user_message/user_message.dart';
 import 'package:front_end_flutter/services/safe_notifier/safe_notifier.dart';
 import 'package:front_end_flutter/services/hours_repository/hours_repository.dart';
 
+/** Edits daily hours and exposes their save status. */
 class HorasViewModel extends SafeNotifier {
+  /** Uses the shared synchronization updates. */
   HorasViewModel({HoursRepository? repository})
     : _repository = repository ?? HoursRepository() {
     OfflineRuntime.current?.addListener(_onSync);
@@ -19,6 +20,9 @@ class HorasViewModel extends SafeNotifier {
   }
 
   bool syncing = false;
+  bool lastSaveSucceeded = false;
+  bool lastSaveConfirmed = false;
+  bool _refreshing = false;
   int formRevision = 0;
   Map<String, dynamic>? currentReport;
   String? _loadedVersion;
@@ -65,6 +69,7 @@ class HorasViewModel extends SafeNotifier {
     return '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}';
   }
 
+  /** Loads one day without retaining another report version. */
   Future<void> selectDate(DateTime value) async {
     if (busy) {
       return;
@@ -79,6 +84,7 @@ class HorasViewModel extends SafeNotifier {
     worked = 0;
     reason = '';
     currentReport = null;
+    _loadedVersion = null;
     try {
       await _repository.synchronize();
       weekReceipts = await _repository.loadPeriod(
@@ -118,6 +124,8 @@ class HorasViewModel extends SafeNotifier {
             currentReport = report;
           }
         }
+        _loadedVersion = currentReport?['_version'] as String?;
+        weekAvailable = true;
         if (currentReport != null) {
           planned = (currentReport!['plannedHours'] as num).toDouble();
           worked = (currentReport!['workedHours'] as num).toDouble();
@@ -134,11 +142,14 @@ class HorasViewModel extends SafeNotifier {
     }
   }
 
+  /** Validates and saves a report before reporting success. */
   Future<void> submitReport(
     String plannedText,
     String workedText,
     String reasonText,
   ) async {
+    lastSaveSucceeded = false;
+    lastSaveConfirmed = false;
     if (busy) {
       return;
     }
@@ -192,7 +203,9 @@ class HorasViewModel extends SafeNotifier {
         'platform': 'flutter',
         'appVersion': '1.0.0',
       });
-      message = receipt ? 'Reporte enviado.' : 'Reporte guardado en este dispositivo. Se enviará al recuperar conexión con la aplicación abierta.';
+      lastSaveSucceeded = true;
+      lastSaveConfirmed = receipt;
+      message = receipt ? 'Reporte enviado.' : 'Reporte guardado en este dispositivo. Se enviará al recuperar conexión.';
       planned = plannedValue;
       worked = workedValue;
       reason = reasonText.trim();
@@ -205,9 +218,18 @@ class HorasViewModel extends SafeNotifier {
     }
   }
 
+  /** Refreshes receipts without applying stale asynchronous results. */
   Future<void> _refreshLocal() async {
+    // # micro opt
+    if (_refreshing || disposed) return;
+    _refreshing = true;
+    final selectedDate = dateKey;
+    final selectedSchool = schoolId;
     try {
       final local = await _repository.localReports();
+      if (disposed || selectedDate != dateKey || selectedSchool != schoolId) {
+        return;
+      }
       weekReceipts = local.where((report) {
         final day = DateTime.parse(report['date'] as String);
         return !day.isBefore(weekStart) &&
@@ -227,6 +249,8 @@ class HorasViewModel extends SafeNotifier {
       }
     } catch (_) {
       message = 'No pudimos leer el estado local del reporte. Reintenta antes de cerrar la aplicación.';
+    } finally {
+      _refreshing = false;
     }
   }
 

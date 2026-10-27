@@ -1,3 +1,5 @@
+import '../offline/offline_runtime.dart';
+
 import 'package:front_end_flutter/services/api_client/api_client.dart';
 import 'package:front_end_flutter/models/scanned_row/scanned_row.dart';
 
@@ -168,11 +170,13 @@ class StudentsRepository {
     );
   }
 
+  /** Saves a mark with its original connectivity context. */
   Future<void> attendance(
     Student student,
     bool present,
     String date, {
     String? expectedStatus,
+    String connectivity = 'unknown',
   }) async {
     String status = 'no_vino';
     if (present) {
@@ -185,6 +189,12 @@ class StudentsRepository {
         'date': date,
         'status': status,
         'expectedStatus': expectedStatus ?? student.attendance,
+        if (OfflineRuntime.current != null)
+          '_attendanceContext': {
+            'connectivity': connectivity,
+            'schoolId': student.schoolId,
+            'name': student.name,
+          },
       },
     );
     if (receipt['id'] != student.id ||

@@ -6,8 +6,11 @@ import 'package:front_end_flutter/firebase_options.dart';
 import 'package:front_end_flutter/config/api_config/api_config.dart';
 import 'package:front_end_flutter/theme/app_theme/app_theme.dart';
 import 'package:front_end_flutter/views/auth_gate/auth_gate.dart';
+
+import 'services/offline/background_sync.dart';
 part 'app/my_app.dart';
 
+/** Initializes Firebase and opens the app. */
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -23,5 +26,6 @@ Future<void> main() async {
     );
   }
 
+  await BackgroundSync.initialize();
   runApp(const MyApp());
 }

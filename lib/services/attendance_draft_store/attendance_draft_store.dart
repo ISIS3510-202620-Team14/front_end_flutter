@@ -4,7 +4,9 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+/** Persists account-scoped attendance drafts. */
 class AttendanceDraftStore {
+  /** Selects the account storage key. */
   AttendanceDraftStore({required this.userId});
   final String userId;
   Future<String?> _readRaw(SharedPreferences prefs) async {
@@ -84,16 +86,19 @@ class AttendanceDraftStore {
     return notice;
   }
 
+  /** Stores marks and their original network context together. */
   Future<void> save(
     Map<String, Map<String, bool>> drafts, {
     Map<String, Map<String, String>> bases = const {},
     Map<String, Map<String, String>> failures = const {},
+    Map<String, Map<String, String>> connectivity = const {},
   }) {
     final String snapshot = jsonEncode({
       'version': 2,
       'drafts': drafts,
       'bases': bases,
       'failures': failures,
+      'connectivity': connectivity,
     });
     final Future<void> operation = _writes.then((_) async {
       final runtime = OfflineRuntime.current;

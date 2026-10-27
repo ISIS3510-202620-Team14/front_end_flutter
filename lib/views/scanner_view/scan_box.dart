@@ -1,70 +1,40 @@
 part of 'scanner_view.dart';
 
+/** Keeps capture available while pages are read. */
 class _ScanBox extends StatelessWidget {
+  /** Creates the camera action. */
   const _ScanBox({required this.status, required this.onTap});
-
   final ScannerStatus status;
   final VoidCallback? onTap;
 
+  /** Shows camera access and a separate processing indicator. */
   @override
   Widget build(BuildContext context) {
     final scanning = status == ScannerStatus.scanning;
-    final hasRows = status == ScannerStatus.review;
-
-    final double boxHeight;
-    if (hasRows) {
-      boxHeight = 72.0;
-    } else {
-      boxHeight = 150.0;
-    }
-    final Widget scanContent;
-    if (scanning) {
-      scanContent = const CircularProgressIndicator(color: AppTheme.red);
-    } else {
-      final double cameraIconSize;
-      if (hasRows) {
-        cameraIconSize = 28.0;
-      } else {
-        cameraIconSize = 48.0;
-      }
-      final String cameraLabel;
-      if (hasRows) {
-        cameraLabel = 'ESCANEAR OTRA PÁGINA';
-      } else {
-        cameraLabel = 'ABRIR CÁMARA';
-      }
-      scanContent = Row(
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: const Icon(Icons.document_scanner_outlined, color: AppTheme.red),
+      label: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.document_scanner_outlined,
-            color: AppTheme.red,
-            size: cameraIconSize,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            cameraLabel,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-              color: AppTheme.ink,
+          Flexible(
+            child: Text(
+              status == ScannerStatus.idle
+                  ? 'Abrir cámara'
+                  : 'Escanear otra página',
             ),
           ),
+          if (scanning) ...[
+            const SizedBox(width: 12),
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ],
         ],
-      );
-    }
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: boxHeight,
-        decoration: BoxDecoration(
-          color: AppTheme.background,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.line),
-        ),
-        child: Center(child: scanContent),
       ),
+      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(64)),
     );
   }
 }
