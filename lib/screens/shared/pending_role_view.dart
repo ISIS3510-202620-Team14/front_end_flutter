@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../admin/attendance_conflicts_report.dart';
+import '../admin/reports_view.dart';
 
 import 'package:front_end_flutter/ui/components/enad_panel.dart';
 
@@ -63,6 +64,20 @@ class PendingRoleView extends StatelessWidget {
                       },
                       icon: const Icon(Icons.assignment_late_outlined),
                       label: const Text('Conflictos de asistencia'),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) {
+                              return const ReportsView();
+                            },
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.bar_chart_outlined),
+                      label: const Text('Reportes'),
                     ),
                     const SizedBox(height: 12),
                   ],
