@@ -5,6 +5,7 @@ class _HomeShellState extends State<HomeShell> {
   final _tutorial = TaskTutorialController();
   late final HomeViewModel _viewModel;
   late final GruposViewModel _gruposViewModel;
+  late final WeeklyOpensViewModel _opensViewModel;
   int _currentIndex = 0;
   int _attendancePending = 0;
   int _currentAttendancePending = 0;
@@ -19,6 +20,10 @@ class _HomeShellState extends State<HomeShell> {
       students: _viewModel.studentsViewModel,
     );
     _gruposViewModel.loadGroups();
+    _opensViewModel = WeeklyOpensViewModel(
+      repository: AppOpensRepository(userId: widget.session.profile!.uid),
+    );
+    _opensViewModel.start();
   }
 
   void _refreshGuide() {
@@ -32,6 +37,7 @@ class _HomeShellState extends State<HomeShell> {
     _tutorial.removeListener(_refreshGuide);
     _tutorial.dispose();
     _gruposViewModel.dispose();
+    _opensViewModel.dispose();
     _viewModel.dispose();
     super.dispose();
   }
@@ -97,6 +103,7 @@ class _HomeShellState extends State<HomeShell> {
                   HoyView(
                     tutorial: _tutorial,
                     viewModel: _viewModel,
+                    opensViewModel: _opensViewModel,
                     schools: widget.session.schools,
                     onStudents: () {
                       _select(1);
