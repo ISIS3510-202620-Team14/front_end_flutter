@@ -50,3 +50,7 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+}

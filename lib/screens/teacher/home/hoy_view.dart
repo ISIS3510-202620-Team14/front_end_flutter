@@ -1,0 +1,118 @@
+import 'package:front_end_flutter/feature/tutorials/task_tutorial_controller.dart';
+import 'package:front_end_flutter/ui/components/brand_heading.dart';
+import 'package:flutter/material.dart';
+import 'package:front_end_flutter/screens/teacher/home/home_viewmodel.dart';
+import 'package:front_end_flutter/ui/components/quick_action_card.dart';
+import 'package:front_end_flutter/screens/teacher/evaluation/evaluation_menu_view.dart';
+import 'package:front_end_flutter/domain/model/quick_action.dart';
+import 'package:front_end_flutter/feature/actividad/activities_view.dart';
+
+class HoyView extends StatelessWidget {
+  const HoyView({
+    super.key,
+    required this.viewModel,
+    required this.onStudents,
+    required this.onHours,
+    this.schools = const [],
+    this.tutorial,
+  });
+  final HomeViewModel viewModel;
+  final TaskTutorialController? tutorial;
+  final List<Map<String, dynamic>> schools;
+  final VoidCallback onStudents;
+  final VoidCallback onHours;
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: viewModel,
+      builder: (context, child) {
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          children: [
+            BrandHeading(title: viewModel.sectionTitle),
+            const SizedBox(height: 24),
+            if (viewModel.studentsViewModel.loading)
+              const LinearProgressIndicator(),
+            if (viewModel.studentsViewModel.error != null) ...[
+              Text(viewModel.studentsViewModel.error!),
+              TextButton(
+                onPressed: viewModel.studentsViewModel.reload,
+                child: const Text('Reintentar'),
+              ),
+            ],
+            QuickActionCard(
+              key: tutorial?.keyFor('hours', 0),
+              action: const QuickAction(
+                icon: Icons.access_time,
+                title: 'Reportar horas',
+                subtitle: 'Registra las horas de tu semana',
+              ),
+              onTap: onHours,
+            ),
+            const SizedBox(height: 16),
+            QuickActionCard(
+              key: tutorial?.keyFor('attendance', 0),
+              action: const QuickAction(
+                icon: Icons.fact_check_outlined,
+                title: 'Reportar asistencia',
+                subtitle: 'Registra quiénes asistieron a la sesión',
+              ),
+              onTap: onStudents,
+            ),
+            const SizedBox(height: 16),
+            QuickActionCard(
+              key: tutorial?.keyFor('evaluation', 0),
+              action: const QuickAction(
+                icon: Icons.assessment_outlined,
+                title: 'Evaluación formativa',
+                subtitle: 'Elige Lectura o Matemáticas',
+              ),
+              onTap: () async {
+                tutorial?.advance('evaluation', 0);
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (BuildContext context) {
+                      return EvaluationMenuView(
+                        tutorial: tutorial,
+                        viewModel: viewModel,
+                        schools: schools,
+                      );
+                    },
+                  ),
+                );
+                if (tutorial?.flow == 'evaluation') {
+                  tutorial?.stop();
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            QuickActionCard(
+              key: tutorial?.keyFor('activities', 0),
+              action: const QuickAction(
+                icon: Icons.menu_book_outlined,
+                title: 'Planear actividades',
+                subtitle: 'Elige actividades de la biblioteca',
+              ),
+              onTap: () async {
+                tutorial?.advance('activities', 0);
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) {
+                      return ActivitiesView(
+                        tutorial: tutorial,
+                        subjects: HomeViewModel.subjectTitles,
+                      );
+                    },
+                  ),
+                );
+                if (tutorial?.flow == 'activities') {
+                  tutorial?.stop();
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
