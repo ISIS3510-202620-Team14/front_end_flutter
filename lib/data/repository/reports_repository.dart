@@ -37,6 +37,28 @@ class ReportsRepository {
     );
   }
 
+  /** Teachers who opened the app in a week (Monday as yyyy-MM-dd). */
+  Future<Map<String, dynamic>> weeklyOpens(String week, {bool force = false}) {
+    return cache.getOrLoad<Map<String, dynamic>>(
+      'aperturas:$week',
+      () async {
+        final Map<String, dynamic> result = await _api.request(
+          'GET',
+          'appOpens/report',
+          query: {'week': week},
+        );
+        if (result['teachers'] is! num || result['teachersOverOnce'] is! num) {
+          throw const ApiException(502, 'El reporte recibido está incompleto.');
+        }
+        return result;
+      },
+      force: force,
+      expires: (Map<String, dynamic> result) {
+        return result['provisional'] != false;
+      },
+    );
+  }
+
   /** Grouping sessions that did not reach the server within 24 h, per week. */
   Future<Map<String, dynamic>> groupingSync({bool force = false}) {
     return cache.getOrLoad<Map<String, dynamic>>(
