@@ -37,6 +37,52 @@ class ReportsRepository {
     );
   }
 
+  /** Grouping sessions that did not reach the server within 24 h, per week. */
+  Future<Map<String, dynamic>> groupingSync({bool force = false}) {
+    return cache.getOrLoad<Map<String, dynamic>>(
+      'sincronizacion',
+      () async {
+        final Map<String, dynamic> result = await _api.request(
+          'GET',
+          'groupings/report',
+        );
+        if (result['weeks'] is! List || result['rows'] is! List) {
+          throw const ApiException(502, 'El reporte recibido está incompleto.');
+        }
+        return result;
+      },
+      force: force,
+      // Mientras haya una semana abierta los números todavía pueden cambiar.
+      expires: (Map<String, dynamic> result) {
+        return (result['weeks'] as List).any((week) {
+          return week is Map && week['provisional'] != false;
+        });
+      },
+    );
+  }
+
+  /** Minutes per 25 students by school and teacher; subject is null for all. */
+  Future<Map<String, dynamic>> classification({
+    String? subject,
+    bool force = false,
+  }) {
+    return cache.getOrLoad<Map<String, dynamic>>(
+      'clasificacion:${subject ?? 'todas'}',
+      () async {
+        final Map<String, dynamic> result = await _api.request(
+          'GET',
+          'classificationSessions/report',
+          query: {'subject': ?subject},
+        );
+        if (result['schools'] is! List) {
+          throw const ApiException(502, 'El reporte recibido está incompleto.');
+        }
+        return result;
+      },
+      force: force,
+    );
+  }
+
   /** Throws before caching, so an incomplete answer is never stored. */
   void _requireCompleteConflicts(Map<String, dynamic> result) {
     if (result['total'] is! num ||
