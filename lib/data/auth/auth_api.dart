@@ -2,6 +2,7 @@ import '../sync/offline_runtime.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
+import 'package:front_end_flutter/data/repository/reports_repository.dart';
 import 'package:front_end_flutter/data/telemetria/analytics_service.dart';
 part 'auth_error.dart';
 
@@ -43,6 +44,7 @@ class AuthApi {
 
   /** Stops uploads before signing out. */
   static Future<void> logout() async {
+    ReportsRepository.clearCache();
     await OfflineRuntime.clearActiveSession();
     await FirebaseAuth.instance.signOut();
   }
@@ -60,6 +62,7 @@ class AuthApi {
       if (token is! String) {
         throw AuthError('El servidor no devolvió una sesión válida.');
       }
+      ReportsRepository.clearCache();
       await FirebaseAuth.instance.signInWithCustomToken(token);
       String eventName = 'login';
       if (route == 'register') {
