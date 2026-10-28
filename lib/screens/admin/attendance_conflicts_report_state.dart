@@ -3,6 +3,7 @@ part of 'attendance_conflicts_report.dart';
 /** Loads admin-only aggregates from the shared backend. */
 class _AttendanceConflictsReportState extends State<AttendanceConflictsReport> {
   late final ApiClient _api;
+  late final ReportsRepository _reports;
   late String _week;
   Map<String, dynamic>? _report;
   String? _error;
@@ -15,6 +16,7 @@ class _AttendanceConflictsReportState extends State<AttendanceConflictsReport> {
   void initState() {
     super.initState();
     _api = widget.client ?? ApiClient(localFirst: false);
+    _reports = ReportsRepository(_api);
     _week = AttendanceConflicts.weekOf(
       DateTime.now()
           .toUtc()
@@ -32,8 +34,8 @@ class _AttendanceConflictsReportState extends State<AttendanceConflictsReport> {
     super.dispose();
   }
 
-  /** Loads real data and keeps failures visible. */
-  Future<void> _load() async {
+  /** Loads the report from the cache or the backend; force skips the cache (refresh and retry). */
+  Future<void> _load({bool force = false}) async {
     final request = ++_request;
     setState(() {
       _loading = true;
@@ -41,28 +43,7 @@ class _AttendanceConflictsReportState extends State<AttendanceConflictsReport> {
       _report = null;
     });
     try {
-      final result = await _api.request(
-        'GET',
-        'attendanceConflicts/report',
-        query: {'week': _week},
-      );
-      if (result['total'] is! num ||
-          result['conflicts'] is! num ||
-          result['bySchool'] is! List ||
-          result['byConnectivity'] is! List ||
-          result['byPlatform'] is! List) {
-        throw const ApiException(502, 'El reporte recibido está incompleto.');
-      }
-      for (final key in ['bySchool', 'byConnectivity', 'byPlatform']) {
-        for (final row in result[key] as List) {
-          if (row is! Map || row['total'] is! num || row['conflicts'] is! num) {
-            throw const ApiException(
-              502,
-              'El reporte recibido está incompleto.',
-            );
-          }
-        }
-      }
+      final result = await _reports.attendanceConflicts(_week, force: force);
       if (mounted && request == _request) {
         setState(() {
           _report = result;
@@ -188,7 +169,11 @@ class _AttendanceConflictsReportState extends State<AttendanceConflictsReport> {
         title: const Text('Conflictos de asistencia'),
         actions: [
           IconButton(
-            onPressed: _loading ? null : _load,
+            onPressed: _loading
+                ? null
+                : () {
+                    _load(force: true);
+                  },
             icon: const Icon(Icons.refresh),
             tooltip: 'Actualizar',
           ),
@@ -238,7 +223,12 @@ class _AttendanceConflictsReportState extends State<AttendanceConflictsReport> {
           if (_loading) const Center(child: CircularProgressIndicator()),
           if (_error != null) ...[
             Text(_error!),
-            TextButton(onPressed: _load, child: const Text('Reintentar')),
+            TextButton(
+              onPressed: () {
+                _load(force: true);
+              },
+              child: const Text('Reintentar'),
+            ),
           ],
           if (_report != null) ...[
             EnadPanel(
