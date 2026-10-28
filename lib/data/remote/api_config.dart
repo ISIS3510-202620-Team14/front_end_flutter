@@ -10,6 +10,10 @@ class ApiConfig {
     defaultValue: 8080,
   );
   static const bool useEmulators = bool.fromEnvironment('USE_EMULATORS');
+  static const String appVersion = String.fromEnvironment(
+    'APP_VERSION',
+    defaultValue: '1.0.0',
+  );
   static String get emulatorHost {
     const configured = String.fromEnvironment('EMULATOR_HOST');
     if (configured.isNotEmpty) {
