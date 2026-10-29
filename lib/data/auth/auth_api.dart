@@ -1,3 +1,4 @@
+// lib/data/auth/auth_api.dart
 import '../sync/offline_runtime.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,13 +13,14 @@ class AuthApi {
     return FirebaseAuth.instance.authStateChanges();
   }
 
-  static Future<void> register(
+  /** Returns whether the backend managed to send the welcome email (Brevo). */
+  static Future<bool> register(
     String name,
     String email,
     String password, {
     List<Map<String, dynamic>> schools = const [],
   }) async {
-    await _enter('register', {
+    return _enter('register', {
       'fullName': name,
       'email': email,
       'password': password,
@@ -49,7 +51,7 @@ class AuthApi {
     await FirebaseAuth.instance.signOut();
   }
 
-  static Future<void> _enter(String route, Map<String, dynamic> body) async {
+  static Future<bool> _enter(String route, Map<String, dynamic> body) async {
     final api = ApiClient();
     try {
       final data = await api.request(
@@ -69,6 +71,8 @@ class AuthApi {
         eventName = 'sign_up';
       }
       await AnalyticsService.instance.log(eventName, {'method': 'password'});
+      // Only register sends welcomeEmailSent
+      return data['welcomeEmailSent'] == true;
     } on ApiException catch (error) {
       throw AuthError(error.message);
     } on FirebaseAuthException {
