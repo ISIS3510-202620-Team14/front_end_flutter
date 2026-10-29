@@ -1,3 +1,4 @@
+// lib/screens/auth/register_viewmodel.dart
 import 'package:front_end_flutter/data/repository/schools_repository.dart';
 import 'package:front_end_flutter/ui/state/safe_notifier.dart';
 import 'package:flutter/material.dart';
@@ -52,6 +53,9 @@ class RegisterViewModel extends SafeNotifier {
   String? error;
   bool _disposed = false;
 
+  /** The bool represents whether the backend managed to send the welcome email after registration. */
+  bool welcomeEmailSent = false;
+
   void toggleObscurePassword() {
     obscurePassword = !obscurePassword;
     notifyListeners();
@@ -87,10 +91,11 @@ class RegisterViewModel extends SafeNotifier {
     }
     isLoading = true;
     error = null;
+    welcomeEmailSent = false;
     notifyListeners();
 
     try {
-      await AuthApi.register(
+      welcomeEmailSent = await AuthApi.register(
         nameController.text.trim(),
         emailController.text.trim(),
         passwordController.text,

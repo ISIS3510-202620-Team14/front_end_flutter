@@ -1,3 +1,4 @@
+// lib/screens/auth/register_view_state.dart
 part of 'register_view.dart';
 
 class _RegisterViewState extends State<RegisterView> {
@@ -21,6 +22,16 @@ class _RegisterViewState extends State<RegisterView> {
     final creada = await _viewModel.register();
 
     if (creada && mounted) {
+      // Snackbar to inform the user that a welcome email was sent, if applicable.
+      if (_viewModel.welcomeEmailSent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Te enviamos un correo de bienvenida a ${_viewModel.emailController.text.trim()}.',
+            ),
+          ),
+        );
+      }
       Navigator.of(context).pop();
     }
   }
