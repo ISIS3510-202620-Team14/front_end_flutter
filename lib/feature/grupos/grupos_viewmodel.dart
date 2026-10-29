@@ -8,6 +8,8 @@ import 'package:front_end_flutter/data/telemetria/grouping/grouping_analytics_se
 import 'package:front_end_flutter/data/telemetria/grouping/grouping_session_service.dart';
 import 'package:front_end_flutter/ui/state/safe_notifier.dart';
 import 'package:front_end_flutter/screens/teacher/students/students_viewmodel.dart';
+import 'package:front_end_flutter/domain/model/automatic_grouping.dart';
+import 'package:front_end_flutter/domain/model/student.dart';
 
 class GruposViewModel extends SafeNotifier {
   GruposViewModel({
@@ -37,6 +39,8 @@ class GruposViewModel extends SafeNotifier {
   final List<String> subjectLabels = const ['Matemáticas', 'Lectura'];
   static const List<String> subjectKeys = ['matematicas', 'lectura'];
   List<Group> _groups = [];
+  // Aviso para mostrar al cerrar el diálogo, por ejemplo cuántos estudiantes metió el método automático.
+  String? notice;
   bool _loading = false;
   String? _error;
   String? selectedSchoolId;
@@ -142,6 +146,7 @@ class GruposViewModel extends SafeNotifier {
       return false;
     }
     _error = null;
+    notice = null;
     try {
       final size = totalStudentsInSubject;
       final data = await _groupService.createGroup(
@@ -151,7 +156,19 @@ class GruposViewModel extends SafeNotifier {
         teacherId: profile.uid,
       );
       _groups.add(_parseGroup(data));
-      await _registerSession(school, subject, name, size);
+      int assigned = 0;
+      if (method == GroupingMethod.automatic) {
+        assigned = await _fillAutomatically(
+          data['id'] as String,
+          school,
+          subject,
+        );
+        notice = assigned == 0
+            ? 'Grupo creado. Todos los estudiantes ya tienen grupo en esta materia.'
+            : 'Grupo creado con $assigned estudiante(s) sin grupo, ordenados por nivel.';
+        await loadGroups();
+      }
+      await _registerSession(school, subject, name, size, assigned);
 
       try {
         await analyticsService.trackGroupingEvent(
@@ -194,6 +211,7 @@ class GruposViewModel extends SafeNotifier {
     String subject,
     String name,
     int studentsCounted,
+    int studentsAssigned,
   ) async {
     if (studentsCounted < 1) {
       return;
@@ -205,11 +223,54 @@ class GruposViewModel extends SafeNotifier {
         groupName: name,
         studentsCounted: studentsCounted,
         teachersCounted: _teachersCounted(schoolId, subject),
-        studentsAssigned: 0,
+        studentsAssigned: studentsAssigned,
       );
     } catch (error) {
       debugPrint('Grouping session was not registered: $error');
     }
+  }
+
+  /**
+   * Automatic method: adds the students without a group of this subject, ordered by level and grade.
+   * Groups of every teacher of the school count, because a student can only be in one group per subject.
+   * Returns how many were added; one that fails (for example another phone took it first) is skipped.
+   */
+  Future<int> _fillAutomatically(
+    String groupId,
+    String schoolId,
+    String subject,
+  ) async {
+    final Set<String> grouped = {};
+    try {
+      final List<Map<String, dynamic>> schoolGroups = await _groupService
+          .fetchGroups(schoolId: schoolId, subject: subject);
+      for (final Map<String, dynamic> group in schoolGroups) {
+        grouped.addAll(List<String>.from(group['studentIds'] as List? ?? []));
+      }
+    } catch (_) {
+      // Sin la lista completa se usan los grupos ya cargados; el backend rechaza los repetidos.
+      for (final Group group in _groups) {
+        if (group.schoolId == schoolId && group.subject == subject) {
+          grouped.addAll(group.studentIds);
+        }
+      }
+    }
+    final List<Student> chosen = AutomaticGrouping.pick(
+      students: students.students,
+      schoolId: schoolId,
+      subject: subject,
+      alreadyGrouped: grouped,
+    );
+    int added = 0;
+    for (final Student student in chosen) {
+      try {
+        await _groupService.addStudentToGroup(groupId, student.id);
+        added++;
+      } catch (error) {
+        debugPrint('Student ${student.id} was not added automatically: $error');
+      }
+    }
+    return added;
   }
 
   Future<void> _retryPendingSessions() async {
