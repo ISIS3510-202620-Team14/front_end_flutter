@@ -6,6 +6,8 @@ import 'package:front_end_flutter/ui/components/quick_action_card.dart';
 import 'package:front_end_flutter/screens/teacher/evaluation/evaluation_menu_view.dart';
 import 'package:front_end_flutter/domain/model/quick_action.dart';
 import 'package:front_end_flutter/feature/actividad/activities_view.dart';
+import 'package:front_end_flutter/screens/teacher/home/weekly_opens_viewmodel.dart';
+import 'package:front_end_flutter/ui/components/weekly_opens_card.dart';
 
 class HoyView extends StatelessWidget {
   const HoyView({
@@ -15,8 +17,10 @@ class HoyView extends StatelessWidget {
     required this.onHours,
     this.schools = const [],
     this.tutorial,
+    this.opensViewModel,
   });
   final HomeViewModel viewModel;
+  final WeeklyOpensViewModel? opensViewModel;
   final TaskTutorialController? tutorial;
   final List<Map<String, dynamic>> schools;
   final VoidCallback onStudents;
@@ -31,6 +35,10 @@ class HoyView extends StatelessWidget {
           children: [
             BrandHeading(title: viewModel.sectionTitle),
             const SizedBox(height: 24),
+            if (opensViewModel != null) ...[
+              WeeklyOpensCard(viewModel: opensViewModel!),
+              const SizedBox(height: 16),
+            ],
             if (viewModel.studentsViewModel.loading)
               const LinearProgressIndicator(),
             if (viewModel.studentsViewModel.error != null) ...[

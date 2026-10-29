@@ -5,6 +5,7 @@ import 'package:front_end_flutter/domain/model/group.dart';
 import 'package:front_end_flutter/domain/model/user_profile.dart';
 import 'package:front_end_flutter/data/repository/group_service.dart';
 import 'package:front_end_flutter/data/telemetria/grouping/grouping_analytics_service.dart';
+import 'package:front_end_flutter/data/telemetria/grouping/grouping_session_service.dart';
 import 'package:front_end_flutter/ui/state/safe_notifier.dart';
 import 'package:front_end_flutter/screens/teacher/students/students_viewmodel.dart';
 
@@ -14,8 +15,11 @@ class GruposViewModel extends SafeNotifier {
     required this.students,
     GroupService? groupService,
     GroupingAnalyticsService? analyticsService,
+    GroupingSessionService? sessionService,
   }) : _groupService = groupService ?? GroupService(),
-       analyticsService = analyticsService ?? GroupingAnalyticsService() {
+       analyticsService = analyticsService ?? GroupingAnalyticsService(),
+       _sessionService =
+           sessionService ?? GroupingSessionService(userId: profile.uid) {
     OfflineRuntime.current?.addListener(_syncChanged);
   }
   void _syncChanged() {
@@ -26,6 +30,7 @@ class GruposViewModel extends SafeNotifier {
   final StudentsViewModel students;
   final GroupService _groupService;
   final GroupingAnalyticsService analyticsService;
+  final GroupingSessionService _sessionService;
   final String sectionTitle = 'Mis grupos';
   final String sectionSubtitle =
       'Un estudiante puede estar en un grupo de matemáticas y en otro de lectura.';
@@ -105,6 +110,7 @@ class GruposViewModel extends SafeNotifier {
 
   Future<void> loadGroups({String? schoolId, String? teacherId}) async {
     selectedSchoolId ??= profile.schoolIds.first;
+    _retryPendingSessions();
     _loading = true;
     _error = null;
     notifyListeners();
@@ -145,6 +151,7 @@ class GruposViewModel extends SafeNotifier {
         teacherId: profile.uid,
       );
       _groups.add(_parseGroup(data));
+      await _registerSession(school, subject, name, size);
 
       try {
         await analyticsService.trackGroupingEvent(
@@ -166,6 +173,50 @@ class GruposViewModel extends SafeNotifier {
       _error = UserMessage.from(error);
       notifyListeners();
       return false;
+    }
+  }
+
+  /** Counts the teachers of this school with a group of the subject, including the current one. */
+  int _teachersCounted(String schoolId, String subject) {
+    final Set<String> teachers = {profile.uid};
+    for (final Group group in _groups) {
+      if (group.schoolId == schoolId && group.subject == subject) {
+        teachers.add(group.teacherId);
+      }
+    }
+    return teachers.length;
+  }
+
+  // La sesión de agrupación se guarda en el teléfono y se envía cuando hay red.
+  // Si falla, el grupo ya creado no se pierde ni se muestra como error.
+  Future<void> _registerSession(
+    String schoolId,
+    String subject,
+    String name,
+    int studentsCounted,
+  ) async {
+    if (studentsCounted < 1) {
+      return;
+    }
+    try {
+      await _sessionService.register(
+        schoolId: schoolId,
+        subject: subject,
+        groupName: name,
+        studentsCounted: studentsCounted,
+        teachersCounted: _teachersCounted(schoolId, subject),
+        studentsAssigned: 0,
+      );
+    } catch (error) {
+      debugPrint('Grouping session was not registered: $error');
+    }
+  }
+
+  Future<void> _retryPendingSessions() async {
+    try {
+      await _sessionService.synchronize();
+    } catch (error) {
+      debugPrint('Pending grouping sessions were not sent: $error');
     }
   }
 

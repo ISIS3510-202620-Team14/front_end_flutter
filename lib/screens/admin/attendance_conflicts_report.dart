@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../data/remote/api_client.dart';
 import '../../data/repository/attendance_conflicts.dart';
+import '../../data/repository/reports_repository.dart';
 import '../../ui/components/enad_panel.dart';
 part 'attendance_conflicts_report_state.dart';
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../admin/attendance_conflicts_report.dart';
+import '../admin/admin_portal_view.dart';
 
 import 'package:front_end_flutter/ui/components/enad_panel.dart';
 
@@ -16,9 +16,6 @@ class PendingRoleView extends StatelessWidget {
   final VoidCallback onLogout;
 
   String get title {
-    if (role == 'admin') {
-      return 'Administrador';
-    }
     if (role == 'fundacion') {
       return 'Miembro de la fundación';
     }
@@ -28,6 +25,7 @@ class PendingRoleView extends StatelessWidget {
   @override
   /** Opens only the reports available to this role. */
   Widget build(BuildContext context) {
+    if (role == 'admin') return AdminPortalView(onLogout: onLogout);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -50,22 +48,6 @@ class PendingRoleView extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 24),
-                  if (role == 'admin') ...[
-                    FilledButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (context) {
-                              return const AttendanceConflictsReport();
-                            },
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.assignment_late_outlined),
-                      label: const Text('Conflictos de asistencia'),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
                   OutlinedButton(
                     onPressed: onLogout,
                     child: const Text('Cerrar sesión'),
