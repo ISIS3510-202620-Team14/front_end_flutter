@@ -1,3 +1,4 @@
+// lib/data/repository/context_repository.dart
 import 'package:front_end_flutter/data/local/day_context_store.dart';
 import 'package:front_end_flutter/data/location/location_source.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
@@ -29,6 +30,13 @@ class ContextRepository {
   static const double campusRadiusMeters = 150;
   static const double maxInaccuracyMeters = 200;
 
+  // "Hoy" ask schools/groups every time, but the data is cached for a few seconds to avoid multiple requests on refresh.
+  static const Duration _cacheTtl = Duration(seconds: 30);
+  List<Map<String, dynamic>>? _schoolsCache;
+  DateTime? _schoolsCacheAt;
+  List<Map<String, dynamic>>? _groupsCache;
+  DateTime? _groupsCacheAt;
+
   /** Date in Colombia as yyyy-MM-dd, the same key attendance and hours use. */
   String dateKey([DateTime? moment]) {
     return (moment ?? _clock())
@@ -47,21 +55,37 @@ class ContextRepository {
   }
 
   Future<List<Map<String, dynamic>>> _schools() async {
+    final DateTime now = _clock();
+    if (_schoolsCache != null &&
+        _schoolsCacheAt != null &&
+        now.difference(_schoolsCacheAt!) < _cacheTtl) {
+      return _schoolsCache!;
+    }
     final data = await _api.request(
       'GET',
       'registerSchools',
       authenticated: false,
     );
-    return List<Map<String, dynamic>>.from(data['schools'] ?? []);
+    _schoolsCache = List<Map<String, dynamic>>.from(data['schools'] ?? []);
+    _schoolsCacheAt = now;
+    return _schoolsCache!;
   }
 
   Future<List<Map<String, dynamic>>> _groups() async {
+    final DateTime now = _clock();
+    if (_groupsCache != null &&
+        _groupsCacheAt != null &&
+        now.difference(_groupsCacheAt!) < _cacheTtl) {
+      return _groupsCache!;
+    }
     final data = await _api.request(
       'GET',
       'groups',
       query: {'teacherId': userId},
     );
-    return List<Map<String, dynamic>>.from(data['groups'] ?? []);
+    _groupsCache = List<Map<String, dynamic>>.from(data['groups'] ?? []);
+    _groupsCacheAt = now;
+    return _groupsCache!;
   }
 
   /** School of the nearest campus inside the radius. Campuses only bring the coordinates. */
@@ -95,6 +119,8 @@ class ContextRepository {
   /**
    * One location reading. If the teacher is at a campus, keeps today's first and last time
    * for that school and returns its id. The position is only compared, never stored.
+   * Hoy calls this both on open and on every refresh, so "last seen" (and with it the time
+   * spent at the school) actually keeps advancing through the day.
    */
   Future<String?> registerPresence() async {
     final PositionReading? position = await _location.current();
@@ -172,7 +198,9 @@ class ContextRepository {
     try {
       final data = await _api.request('GET', 'students', query: {'date': date});
       return (data['students'] as List? ?? []).where((student) {
+        // 'retired' = Student.withdrawn never counts.
         return student is Map &&
+            student['retired'] != true &&
             student['attendance'] != null &&
             student['attendance'] != 'sin_registro';
       }).length;

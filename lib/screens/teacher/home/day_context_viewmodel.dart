@@ -1,3 +1,4 @@
+// lib/screens/teacher/home/day_context_viewmodel.dart
 import 'package:front_end_flutter/data/repository/context_repository.dart';
 import 'package:front_end_flutter/domain/model/day_moment.dart';
 import 'package:front_end_flutter/ui/state/safe_notifier.dart';
@@ -14,7 +15,7 @@ class DayContextViewModel extends SafeNotifier {
   GroupOfDay? suggestion;
   List<GroupOfDay> groups = [];
   bool choosing = false;
-  // Tarjeta del momento del día: qué le toca hacer ahora al docente.
+  // Day Moment card that is shown to the teacher.
   DaySummary? summary;
   DayMoment? moment;
   bool _started = false;
@@ -39,12 +40,15 @@ class DayContextViewModel extends SafeNotifier {
 
   /**
    * Recomputes the moment of the day. Hoy calls it each time it is shown again, because
-   * coming back from Asistencia or Horas changes what was done, and the time changes the moment.
+   * coming back from Asistencia u Horas changes what was done, and the time changes the moment.
+   * Takes a fresh location reading first, so "last seen at the school" (and with it the time
+   * spent there) actually advances through the day instead of staying at the first reading.
    */
   Future<void> refreshMoment() async {
     if (_refreshing) return;
     _refreshing = true;
     try {
+      await repository.registerPresence();
       final DaySummary next = await repository.summary(confirmed ?? suggestion);
       summary = next;
       moment = DayMoment.of(next, _clock());
