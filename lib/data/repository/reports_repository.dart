@@ -1,3 +1,4 @@
+// lib/data/repository/reports_repository.dart
 import 'package:front_end_flutter/data/cache/memory_cache.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
 
@@ -103,6 +104,20 @@ class ReportsRepository {
       },
       force: force,
     );
+  }
+
+  /** Activities most used by teachers across all schools (BQ #11). */
+  Future<Map<String, dynamic>> topActivities({bool force = false}) {
+    return cache.getOrLoad<Map<String, dynamic>>('actividades', () async {
+      final Map<String, dynamic> result = await _api.request(
+        'GET',
+        'analytics/top-activities',
+      );
+      if (result['total'] is! num || result['activities'] is! List) {
+        throw const ApiException(502, 'El reporte recibido está incompleto.');
+      }
+      return result;
+    }, force: force);
   }
 
   /** Throws before caching, so an incomplete answer is never stored. */

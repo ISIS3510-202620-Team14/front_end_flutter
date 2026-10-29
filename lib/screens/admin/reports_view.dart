@@ -1,8 +1,10 @@
+// lib/screens/admin/reports_view.dart
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/screens/admin/attendance_conflicts_report.dart';
 import 'package:front_end_flutter/screens/admin/classification_report.dart';
 import 'package:front_end_flutter/screens/admin/grouping_sync_report.dart';
 import 'package:front_end_flutter/screens/admin/pending_section.dart';
+import 'package:front_end_flutter/screens/admin/top_activities_report.dart';
 import 'package:front_end_flutter/screens/admin/weekly_opens_report.dart';
 
 /** Reports tab of the admin portal, one chip per report like the Kotlin portal. */
@@ -34,6 +36,8 @@ class _ReportsViewState extends State<ReportsView> {
         return const GroupingSyncReport();
       case 2:
         return const ClassificationReport();
+      case 4:
+        return const TopActivitiesReport();
       case 5:
         return OutlinedButton.icon(
           onPressed: () {
