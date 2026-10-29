@@ -1,3 +1,6 @@
+// lib/screens/admin/classification_report.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
 import 'package:front_end_flutter/data/repository/reports_repository.dart';
@@ -22,8 +25,12 @@ class _ClassificationReportState extends State<ClassificationReport> {
     'matematicas': 'Matemáticas',
     'lectura': 'Lectura',
   };
+  // Cada cuánto se vuelve a pedir el reporte mientras el admin lo tiene en pantalla,
+  // igual que ReporteClasificacionViewModel en Kotlin.
+  static const _refreshInterval = Duration(seconds: 30);
   ApiClient? _ownedApi;
   late final ReportsRepository _reports;
+  Timer? _refresh;
   Map<String, dynamic>? _report;
   String? _subject;
   String? _error;
@@ -37,21 +44,34 @@ class _ClassificationReportState extends State<ClassificationReport> {
     }
     _reports = widget.reports ?? ReportsRepository(_ownedApi!);
     _load();
+    _refresh = Timer.periodic(
+      _refreshInterval,
+      (_) => _load(force: true, silent: true),
+    );
   }
 
   @override
   void dispose() {
+    _refresh?.cancel();
     _ownedApi?.dispose();
     super.dispose();
   }
 
-  /** Reads the report of the chosen subject; force skips the memory cache. */
-  Future<void> _load({bool force = false}) async {
+  /**
+   * Reads the report of the chosen subject; force skips the memory cache.
+   * [silent]: if there is already data on screen, no spinner and a failure
+   * keeps what is already shown (used by the 30 s auto-refresh).
+   */
+  Future<void> _load({bool force = false, bool silent = false}) async {
     final subject = _subject;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    final hasData = !_loading && _error == null && _report != null;
+    final background = silent && hasData;
+    if (!background) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final result = await _reports.classification(
         subject: subject,
@@ -62,9 +82,11 @@ class _ClassificationReportState extends State<ClassificationReport> {
       setState(() {
         _report = result;
         _loading = false;
+        _error = null;
       });
     } catch (error) {
       if (!mounted || subject != _subject) return;
+      if (background) return;
       setState(() {
         _error = reportErrorMessage(error);
         _loading = false;
@@ -164,7 +186,9 @@ class _ClassificationReportState extends State<ClassificationReport> {
         if (!_loading && _report != null && schools.isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 16),
-            child: Text('Todavía no hay sesiones de clasificación registradas.'),
+            child: Text(
+              'Todavía no hay sesiones de clasificación registradas.',
+            ),
           ),
         if (!_loading)
           for (final school in schools)
