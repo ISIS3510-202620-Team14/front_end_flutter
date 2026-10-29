@@ -8,6 +8,10 @@ import 'package:front_end_flutter/domain/model/quick_action.dart';
 import 'package:front_end_flutter/feature/actividad/activities_view.dart';
 import 'package:front_end_flutter/screens/teacher/home/weekly_opens_viewmodel.dart';
 import 'package:front_end_flutter/ui/components/weekly_opens_card.dart';
+import 'package:front_end_flutter/domain/model/day_moment.dart';
+import 'package:front_end_flutter/screens/teacher/home/day_context_viewmodel.dart';
+import 'package:front_end_flutter/ui/components/day_moment_card.dart';
+import 'package:front_end_flutter/ui/components/session_context_card.dart';
 
 class HoyView extends StatelessWidget {
   const HoyView({
@@ -18,23 +22,93 @@ class HoyView extends StatelessWidget {
     this.schools = const [],
     this.tutorial,
     this.opensViewModel,
+    this.contextViewModel,
   });
   final HomeViewModel viewModel;
   final WeeklyOpensViewModel? opensViewModel;
+  final DayContextViewModel? contextViewModel;
   final TaskTutorialController? tutorial;
   final List<Map<String, dynamic>> schools;
   final VoidCallback onStudents;
   final VoidCallback onHours;
+  Future<void> _openEvaluation(BuildContext context) async {
+    tutorial?.advance('evaluation', 0);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (BuildContext context) {
+          return EvaluationMenuView(
+            tutorial: tutorial,
+            viewModel: viewModel,
+            schools: schools,
+          );
+        },
+      ),
+    );
+    if (tutorial?.flow == 'evaluation') {
+      tutorial?.stop();
+    }
+    contextViewModel?.refreshMoment();
+  }
+
+  Future<void> _openActivities(BuildContext context) async {
+    tutorial?.advance('activities', 0);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) {
+          return ActivitiesView(
+            tutorial: tutorial,
+            subjects: HomeViewModel.subjectTitles,
+          );
+        },
+      ),
+    );
+    if (tutorial?.flow == 'activities') {
+      tutorial?.stop();
+    }
+  }
+
+  void _onMomentAction(BuildContext context, SuggestedAction action) {
+    switch (action) {
+      case SuggestedAction.attendance:
+        onStudents();
+      case SuggestedAction.evaluation:
+        _openEvaluation(context);
+      case SuggestedAction.hours:
+        onHours();
+      case SuggestedAction.activities:
+        _openActivities(context);
+      case SuggestedAction.none:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final DayContextViewModel? dayContext = contextViewModel;
     return ListenableBuilder(
-      listenable: viewModel,
+      listenable: Listenable.merge([viewModel, ?dayContext]),
       builder: (context, child) {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
             BrandHeading(title: viewModel.sectionTitle),
             const SizedBox(height: 24),
+            if (dayContext != null) ...[
+              // Context-aware: el siguiente paso según la hora, el horario y lo ya registrado hoy.
+              if (dayContext.moment != null) ...[
+                DayMomentCard(
+                  moment: dayContext.moment,
+                  summary: dayContext.summary,
+                  onAction: (SuggestedAction action) {
+                    _onMomentAction(context, action);
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+              // F11: sugerencia de institución y grupo según ubicación y horario.
+              SessionContextCard(viewModel: dayContext),
+              const SizedBox(height: 16),
+            ],
             if (opensViewModel != null) ...[
               WeeklyOpensCard(viewModel: opensViewModel!),
               const SizedBox(height: 16),
@@ -75,22 +149,8 @@ class HoyView extends StatelessWidget {
                 title: 'Evaluación formativa',
                 subtitle: 'Elige Lectura o Matemáticas',
               ),
-              onTap: () async {
-                tutorial?.advance('evaluation', 0);
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (BuildContext context) {
-                      return EvaluationMenuView(
-                        tutorial: tutorial,
-                        viewModel: viewModel,
-                        schools: schools,
-                      );
-                    },
-                  ),
-                );
-                if (tutorial?.flow == 'evaluation') {
-                  tutorial?.stop();
-                }
+              onTap: () {
+                _openEvaluation(context);
               },
             ),
             const SizedBox(height: 16),
@@ -101,21 +161,8 @@ class HoyView extends StatelessWidget {
                 title: 'Planear actividades',
                 subtitle: 'Elige actividades de la biblioteca',
               ),
-              onTap: () async {
-                tutorial?.advance('activities', 0);
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) {
-                      return ActivitiesView(
-                        tutorial: tutorial,
-                        subjects: HomeViewModel.subjectTitles,
-                      );
-                    },
-                  ),
-                );
-                if (tutorial?.flow == 'activities') {
-                  tutorial?.stop();
-                }
+              onTap: () {
+                _openActivities(context);
               },
             ),
           ],

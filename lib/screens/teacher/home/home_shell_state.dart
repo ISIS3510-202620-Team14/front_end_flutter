@@ -6,6 +6,7 @@ class _HomeShellState extends State<HomeShell> {
   late final HomeViewModel _viewModel;
   late final GruposViewModel _gruposViewModel;
   late final WeeklyOpensViewModel _opensViewModel;
+  late final DayContextViewModel _contextViewModel;
   int _currentIndex = 0;
   int _attendancePending = 0;
   int _currentAttendancePending = 0;
@@ -24,6 +25,10 @@ class _HomeShellState extends State<HomeShell> {
       repository: AppOpensRepository(userId: widget.session.profile!.uid),
     );
     _opensViewModel.start();
+    _contextViewModel = DayContextViewModel(
+      repository: ContextRepository(userId: widget.session.profile!.uid),
+    );
+    _contextViewModel.start();
   }
 
   void _refreshGuide() {
@@ -38,6 +43,7 @@ class _HomeShellState extends State<HomeShell> {
     _tutorial.dispose();
     _gruposViewModel.dispose();
     _opensViewModel.dispose();
+    _contextViewModel.dispose();
     _viewModel.dispose();
     super.dispose();
   }
@@ -79,6 +85,8 @@ class _HomeShellState extends State<HomeShell> {
     setState(() {
       _currentIndex = index;
     });
+    // Al volver de Asistencia u Horas lo hecho cambia, y con la hora también el momento del día.
+    if (index == 0) _contextViewModel.refreshMoment();
   }
 
   @override
@@ -104,6 +112,7 @@ class _HomeShellState extends State<HomeShell> {
                     tutorial: _tutorial,
                     viewModel: _viewModel,
                     opensViewModel: _opensViewModel,
+                    contextViewModel: _contextViewModel,
                     schools: widget.session.schools,
                     onStudents: () {
                       _select(1);
@@ -138,6 +147,7 @@ class _HomeShellState extends State<HomeShell> {
                   HorasView(
                     schools: widget.session.schools,
                     tutorial: _tutorial,
+                    userId: widget.session.profile!.uid,
                   ),
                   ProfileView(
                     session: widget.session,
