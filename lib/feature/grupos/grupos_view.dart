@@ -19,8 +19,9 @@ class GruposView extends StatelessWidget {
 
   const GruposView({super.key, required this.viewModel, required this.schools});
 
-  void _openCreateGroupDialog(BuildContext context) {
-    showDialog(
+  Future<void> _openCreateGroupDialog(BuildContext context) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final bool? created = await showDialog<bool>(
       context: context,
       builder: (_) {
         return CreateGroupDialog(
@@ -42,6 +43,10 @@ class GruposView extends StatelessWidget {
         );
       },
     );
+    final String? notice = viewModel.notice;
+    if (created == true && notice != null) {
+      messenger.showSnackBar(SnackBar(content: Text(notice)));
+    }
   }
 
   void _openDetail(BuildContext context, Group group) {
@@ -139,7 +144,7 @@ class GruposView extends StatelessWidget {
                 EmptyGroupsState(
                   subjectLabel: _subjectLabel(),
                   onCreateGroup: () {
-                    return _openCreateGroupDialog(context);
+                    _openCreateGroupDialog(context);
                   },
                 )
               else ...[
@@ -159,7 +164,7 @@ class GruposView extends StatelessWidget {
                 const SizedBox(height: 16),
                 CreateGroupCard(
                   onTap: () {
-                    return _openCreateGroupDialog(context);
+                    _openCreateGroupDialog(context);
                   },
                 ),
               ],
