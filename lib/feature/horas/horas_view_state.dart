@@ -3,6 +3,9 @@ part of 'horas_view.dart';
 class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
   late final HorasViewModel _viewModel = HorasViewModel(
     repository: widget.repository,
+    dayContext: widget.userId == null
+        ? null
+        : ContextRepository(userId: widget.userId!),
   );
   final TextEditingController _planned = TextEditingController();
   final TextEditingController _worked = TextEditingController();
@@ -25,6 +28,10 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
     _viewModel.addListener(_refreshTutorial);
     _planned.addListener(_refreshTutorial);
     _worked.addListener(_refreshTutorial);
+    // El aviso de horas sugeridas desaparece apenas el docente cambia el valor.
+    _worked.addListener(() {
+      if (mounted && _viewModel.suggestion != null) setState(() {});
+    });
     _reason.addListener(_refreshTutorial);
     _viewModel.selectDate(_viewModel.date);
   }
@@ -51,6 +58,14 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
       if (exists) {
         _planned.text = _viewModel.planned.toString();
         _worked.text = _viewModel.worked.toString();
+      } else {
+        // Sin reporte guardado se proponen las horas del horario y, si hay, la sugerencia.
+        if (_viewModel.planned > 0) {
+          _planned.text = _viewModel.planned.toString();
+        }
+        if (_viewModel.suggestion != null) {
+          _worked.text = _viewModel.suggestion!.hours.toString();
+        }
       }
       final HoursReason saved = HoursReason.fromStored(_viewModel.reason);
       _reasonCategory = saved.category;
@@ -383,6 +398,16 @@ class _HorasViewState extends State<HorasView> with WidgetsBindingObserver {
                       suffixText: 'h',
                     ),
                   ),
+                  if (_viewModel.suggestion != null &&
+                      _worked.text ==
+                          _viewModel.suggestion!.hours.toString()) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Sugerido según tu permanencia en la sede '
+                      '(${formatHours(_viewModel.suggestion!.stayHours)} h). Puedes cambiarlo.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                   if (_needsReason)
                     Column(
                       key: widget.tutorial?.keyFor('hours', 5),

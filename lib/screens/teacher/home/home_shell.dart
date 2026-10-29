@@ -6,6 +6,8 @@ import 'package:front_end_flutter/ui/theme/app_theme.dart';
 import 'package:front_end_flutter/screens/teacher/home/home_viewmodel.dart';
 import 'package:front_end_flutter/screens/teacher/home/weekly_opens_viewmodel.dart';
 import 'package:front_end_flutter/data/repository/app_opens_repository.dart';
+import 'package:front_end_flutter/data/repository/context_repository.dart';
+import 'package:front_end_flutter/screens/teacher/home/day_context_viewmodel.dart';
 import 'package:front_end_flutter/feature/grupos/grupos_viewmodel.dart';
 import 'package:front_end_flutter/screens/auth/session_viewmodel.dart';
 import 'package:front_end_flutter/ui/components/home_bottom_nav.dart';

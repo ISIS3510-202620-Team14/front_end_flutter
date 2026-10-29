@@ -2,15 +2,22 @@ import 'package:front_end_flutter/data/sync/offline_runtime.dart';
 import 'package:front_end_flutter/ui/utils/user_message.dart';
 import 'package:front_end_flutter/ui/state/safe_notifier.dart';
 import 'package:front_end_flutter/data/repository/hours_repository.dart';
+import 'package:front_end_flutter/data/repository/context_repository.dart';
+import 'package:front_end_flutter/domain/model/day_moment.dart';
 
 /** Edits daily hours and exposes their save status. */
 class HorasViewModel extends SafeNotifier {
   /** Uses the shared synchronization updates. */
-  HorasViewModel({HoursRepository? repository})
+  HorasViewModel({HoursRepository? repository, this.dayContext})
     : _repository = repository ?? HoursRepository() {
     OfflineRuntime.current?.addListener(_onSync);
+    // Una lectura al abrir Horas: actualiza la última hora en la sede, que es el tope de la sugerencia.
+    dayContext?.registerPresence();
   }
   final HoursRepository _repository;
+  final ContextRepository? dayContext;
+  // F11: horas sugeridas del día según la permanencia en la sede; null si no hay sugerencia.
+  HoursSuggestion? suggestion;
   void _onSync() {
     if (!busy && !disposed) {
       _refreshLocal().then((_) {
@@ -85,6 +92,7 @@ class HorasViewModel extends SafeNotifier {
     reason = '';
     currentReport = null;
     _loadedVersion = null;
+    suggestion = null;
     try {
       await _repository.synchronize();
       weekReceipts = await _repository.loadPeriod(
@@ -106,6 +114,7 @@ class HorasViewModel extends SafeNotifier {
         reason = data['reason'] as String? ?? '';
         schoolId = data['schoolId'] as String? ?? schoolId;
       }
+      if (data == null) await _suggest();
       if (_repository.usingCache) {
         message = 'Mostrando los reportes guardados en este dispositivo.';
       }
@@ -140,6 +149,19 @@ class HorasViewModel extends SafeNotifier {
       busy = false;
       notifyListeners();
     }
+  }
+
+  /** Without a saved report, proposes the schedule hours and the hours suggested by presence. */
+  Future<void> _suggest() async {
+    final ContextRepository? context = dayContext;
+    final String? school = schoolId;
+    if (context == null || school == null) return;
+    final String day = dateKey;
+    final double scheduled = await context.plannedHours(day, school);
+    if (day != dateKey || school != schoolId || scheduled <= 0) return;
+    planned = scheduled;
+    suggestion = await context.hoursSuggestion(day, school, scheduled);
+    if (suggestion != null) worked = suggestion!.hours;
   }
 
   /** Validates and saves a report before reporting success. */
@@ -190,14 +212,22 @@ class HorasViewModel extends SafeNotifier {
     busy = true;
     message = null;
     notifyListeners();
+    // Si el docente cambió el valor sugerido, deja de ser una sugerencia.
+    final bool present =
+        await dayContext?.presentAt(dateKey, schoolId!) ?? false;
+    final bool suggested =
+        present &&
+        suggestion != null &&
+        workedValue == suggestion!.hours &&
+        workedValue <= plannedValue;
     try {
       final receipt = await _repository.save(dateKey, {
         'schoolId': schoolId,
         '_baseVersion': _loadedVersion,
         'plannedHours': plannedValue,
         'workedHours': workedValue,
-        'origin': 'manual',
-        'presentAtCampus': false,
+        'origin': suggested ? ValueOrigin.suggested : ValueOrigin.manual,
+        'presentAtCampus': present,
         'reason': reasonText.trim(),
         'savedAt': DateTime.now().toUtc().toIso8601String(),
         'platform': 'flutter',
@@ -297,6 +327,7 @@ class HorasViewModel extends SafeNotifier {
   void dispose() {
     OfflineRuntime.current?.removeListener(_onSync);
     _repository.dispose();
+    dayContext?.dispose();
     super.dispose();
   }
 }
