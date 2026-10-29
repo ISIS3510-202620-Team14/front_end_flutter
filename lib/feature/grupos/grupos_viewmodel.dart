@@ -39,7 +39,7 @@ class GruposViewModel extends SafeNotifier {
   final List<String> subjectLabels = const ['Matemáticas', 'Lectura'];
   static const List<String> subjectKeys = ['matematicas', 'lectura'];
   List<Group> _groups = [];
-  // Aviso para mostrar al cerrar el diálogo, por ejemplo cuántos estudiantes metió el método automático.
+  // Notice shown when the dialog closes, for example how many students the automatic method added.
   String? notice;
   bool _loading = false;
   String? _error;
@@ -248,7 +248,7 @@ class GruposViewModel extends SafeNotifier {
         grouped.addAll(List<String>.from(group['studentIds'] as List? ?? []));
       }
     } catch (_) {
-      // Sin la lista completa se usan los grupos ya cargados; el backend rechaza los repetidos.
+      // Without the full list the loaded groups are used; the backend rejects duplicates anyway.
       for (final Group group in _groups) {
         if (group.schoolId == schoolId && group.subject == subject) {
           grouped.addAll(group.studentIds);
