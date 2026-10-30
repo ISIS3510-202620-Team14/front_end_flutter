@@ -68,15 +68,29 @@ class StudentListScanner {
           'rows': rows.length,
           ...conditions.toAnalytics(),
         };
-        try {
-          if (logger != null) {
-            await logger!('scanner_page_processed', data);
-          } else {
-            await AnalyticsService.instance.log('scanner_page_processed', data);
-          }
-        } catch (_) {}
+        await _log('scanner_page_processed', data);
+        // Same events and fields that EventosEscaneo.kt: is the one that reads the report
+        // "Escaneo" of the admin (BQ 10). A failed OCR counts as a page with no rows, and
+        // ocrMs is the total time of the page (OCR plus parser), as in Kotlin.
+        await _log('scan_page', {
+          'rows': rows.length,
+          'ocrFailed': status == 'error',
+          'ocrMs': watch.elapsedMilliseconds,
+          ...conditions.toAnalytics(),
+        });
       }
     }
+  }
+
+  /** Sends an analytics event; a failed log never breaks the scan. */
+  Future<void> _log(String name, Map<String, Object> data) async {
+    try {
+      if (logger != null) {
+        await logger!(name, data);
+      } else {
+        await AnalyticsService.instance.log(name, data);
+      }
+    } catch (_) {}
   }
 
   /** Keeps Android image decoding off the native UI thread. */

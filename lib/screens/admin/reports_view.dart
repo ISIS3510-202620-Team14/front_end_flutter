@@ -5,6 +5,8 @@ import 'package:front_end_flutter/screens/admin/attendance_conflicts_report.dart
 import 'package:front_end_flutter/screens/admin/classification_report.dart';
 import 'package:front_end_flutter/screens/admin/grouping_sync_report.dart';
 import 'package:front_end_flutter/screens/admin/hours_report.dart';
+import 'package:front_end_flutter/screens/admin/scan_quality_report.dart';
+import 'package:front_end_flutter/screens/admin/scan_review_report.dart';
 import 'package:front_end_flutter/screens/admin/top_activities_report.dart';
 import 'package:front_end_flutter/screens/admin/weekly_opens_report.dart';
 
@@ -17,6 +19,8 @@ class ReportIndex {
   static const activities = 4;
   static const conflicts = 5;
   static const assessments = 6;
+  static const scanQuality = 7;
+  static const scanReview = 8;
 }
 
 /** Reports tab of the admin portal, one chip per report like the Kotlin portal. */
@@ -40,6 +44,8 @@ class _ReportsViewState extends State<ReportsView> {
     'Actividades',
     'Conflictos',
     'Evaluaciones',
+    'Escaneo',
+    'Revisión',
   ];
   late int _selected = widget.initial;
 
@@ -69,8 +75,12 @@ class _ReportsViewState extends State<ReportsView> {
           icon: const Icon(Icons.assignment_late_outlined),
           label: const Text('Conflictos de asistencia'),
         );
-      default:
+      case ReportIndex.assessments:
         return const AssessmentsReport();
+      case ReportIndex.scanQuality:
+        return const ScanQualityReport();
+      default:
+        return const ScanReviewReport();
     }
   }
 
@@ -91,7 +101,7 @@ class _ReportsViewState extends State<ReportsView> {
           ],
         ),
         const SizedBox(height: 16),
-        // The cache en memory prevents asking again for the report when the chip is changed.
+        // Cache in memory prevents asking again the report when switching chips.
         _section(),
       ],
     );

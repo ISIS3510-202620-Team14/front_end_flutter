@@ -45,23 +45,27 @@ class CaptureSensors {
       },
     );
 
-    _accelSub = accelerometerEventStream().listen(
-      (event) {
-        _stable = _detector.add(
-          event.x,
-          event.y,
-          event.z,
-          DateTime.now().millisecondsSinceEpoch,
-        );
-        _emit();
-      },
-      onError: (_) {
-        _hasAccelerometer = false;
-        _stable = null;
-        _emit();
-      },
-      cancelOnError: true,
-    );
+    // Same rate as SENSOR_DELAY_UI in Kotlin (about 15 readings per second): the stillness
+    // detector counts readings, so a slower rate would measure something different.
+    _accelSub =
+        accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval)
+            .listen(
+              (event) {
+                _stable = _detector.add(
+                  event.x,
+                  event.y,
+                  event.z,
+                  DateTime.now().millisecondsSinceEpoch,
+                );
+                _emit();
+              },
+              onError: (_) {
+                _hasAccelerometer = false;
+                _stable = null;
+                _emit();
+              },
+              cancelOnError: true,
+            );
 
     _emit();
   }
