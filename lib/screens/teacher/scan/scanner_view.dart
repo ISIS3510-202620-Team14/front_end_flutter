@@ -1,7 +1,11 @@
+// lib/screens/teacher/scan/scanner_view.dart
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:front_end_flutter/domain/model/capture_conditions.dart';
+import 'package:front_end_flutter/screens/teacher/scan/camera_capture_view.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
 import 'package:front_end_flutter/screens/teacher/scan/scanner_viewmodel.dart';
 part 'scanner_view_state.dart';

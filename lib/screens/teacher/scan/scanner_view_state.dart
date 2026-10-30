@@ -1,10 +1,27 @@
+// lib/screens/teacher/scan/scanner_view_state.dart
 part of 'scanner_view.dart';
 
 /** Owns the scanner while the sheet is open. */
 class _ScannerViewState extends State<ScannerView> {
   late final _viewModel = ScannerViewModel(
     allowProvisional: widget.allowProvisional,
+    capture: _captureWithCamera,
   );
+
+  /** Opens own camera and, if the teacher takes a photo, returns its path and conditions. */
+  Future<CapturedPhoto?> _captureWithCamera() {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
+      throw UnsupportedError(
+        'El escáner requiere la aplicación Android o iOS.',
+      );
+    }
+    return Navigator.of(context).push<CapturedPhoto>(
+      MaterialPageRoute(
+        builder: (_) => const CameraCaptureView(),
+        fullscreenDialog: true,
+      ),
+    );
+  }
 
   /** Releases the current scan. */
   @override

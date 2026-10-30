@@ -1,8 +1,10 @@
+// lib/screens/teacher/scan/scanner_viewmodel.dart
 import 'dart:async';
 import 'dart:collection';
 
 import 'package:uuid/uuid.dart';
 
+import 'package:front_end_flutter/domain/model/capture_conditions.dart';
 import 'package:front_end_flutter/domain/model/scanned_row.dart';
 import 'package:front_end_flutter/domain/model/scanner_page.dart';
 export 'package:front_end_flutter/domain/model/scanned_row.dart';
@@ -18,17 +20,21 @@ class ScannerViewModel extends SafeNotifier {
   ScannerViewModel({
     this.allowProvisional = false,
     StudentListScanner? scanner,
-    Future<String?> Function()? capture,
-    Future<List<ScannedRow>> Function(String, int)? read,
+    Future<CapturedPhoto?> Function()? capture,
+    Future<List<ScannedRow>> Function(String, int, CaptureConditions)? read,
+    void Function(String)? own,
     Future<void> Function()? close,
   }) {
     final service = scanner ?? StudentListScanner();
-    _capture = capture ?? service.capture;
+    _capture = capture;
     _read = read ?? service.read;
+    _own = own ?? service.own;
     _close = close ?? service.close;
   }
-  late final Future<String?> Function() _capture;
-  late final Future<List<ScannedRow>> Function(String, int) _read;
+  Future<CapturedPhoto?> Function()? _capture;
+  late final Future<List<ScannedRow>> Function(String, int, CaptureConditions)
+  _read;
+  late final void Function(String) _own;
   late final Future<void> Function() _close;
   final _queue = Queue<ScannerPage>();
   final Map<int, List<ScannedRow>> _finished = {};
@@ -74,6 +80,12 @@ class ScannerViewModel extends SafeNotifier {
   /** Queues a photo and releases the camera before processing completes. */
   Future<void> scan() async {
     if (disposed || capturing) return;
+    final capture = _capture;
+    if (capture == null) {
+      error = 'No se pudo abrir la cámara.';
+      notifyListeners();
+      return;
+    }
     if (_pages.length >= 20) {
       error = 'Revisa e importa estas páginas antes de escanear más.';
       notifyListeners();
@@ -83,9 +95,14 @@ class ScannerViewModel extends SafeNotifier {
     error = null;
     notifyListeners();
     try {
-      final path = await _capture();
-      if (disposed || path == null) return;
-      final page = ScannerPage(_pages.length + 1, path);
+      final captured = await capture();
+      if (disposed || captured == null) return;
+      _own(captured.path);
+      final page = ScannerPage(
+        _pages.length + 1,
+        captured.path,
+        conditions: captured.conditions,
+      );
       _pages.add(page);
       _queue.add(page);
       _pump();
@@ -115,7 +132,7 @@ class ScannerViewModel extends SafeNotifier {
     var result = <ScannedRow>[];
     var failed = false;
     try {
-      result = await _read(page.path, page.number);
+      result = await _read(page.path, page.number, page.conditions);
     } catch (_) {
       failed = true;
     }
