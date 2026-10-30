@@ -1,6 +1,10 @@
 // lib/screens/teacher/scan/scanner_view.dart
 import 'dart:io';
 
+import 'package:front_end_flutter/data/cache/thumbnail_cache.dart';
+
+import 'scanner_thumbnail.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

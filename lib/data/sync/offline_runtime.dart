@@ -16,6 +16,7 @@ import 'offline_projection.dart';
 import 'background_sync.dart';
 import '../repository/attendance_conflicts.dart';
 
+// # eventual connectivity: durable outbox, retry and account isolation; Kotlin mirror: Santiago Quiroz.
 /** Coordinates local changes and server receipts. */
 class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
   /** Creates a foreground or background coordinator. */

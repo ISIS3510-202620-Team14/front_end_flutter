@@ -3,6 +3,7 @@ part of 'scanner_view.dart';
 
 /** Owns the scanner while the sheet is open. */
 class _ScannerViewState extends State<ScannerView> {
+  final _thumbnails = ThumbnailCache();
   late final _viewModel = ScannerViewModel(
     allowProvisional: widget.allowProvisional,
     capture: _captureWithCamera,
@@ -26,9 +27,7 @@ class _ScannerViewState extends State<ScannerView> {
   /** Releases the current scan. */
   @override
   void dispose() {
-    for (final page in _viewModel.pages) {
-      ResizeImage.resizeIfNeeded(96, null, FileImage(File(page.path))).evict();
-    }
+    _thumbnails.dispose();
     _viewModel.dispose();
     super.dispose();
   }
@@ -111,18 +110,10 @@ class _ScannerViewState extends State<ScannerView> {
                               padding: const EdgeInsets.only(right: 12, top: 8),
                               child: Row(
                                 children: [
-                                  // # micro opt
-                                  Image.file(
-                                    File(page.path),
-                                    width: 48,
-                                    height: 64,
-                                    cacheWidth: 96,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) {
-                                      return const Icon(
-                                        Icons.description_outlined,
-                                      );
-                                    },
+                                  ScannerThumbnail(
+                                    key: ValueKey(page.path),
+                                    path: page.path,
+                                    cache: _thumbnails,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(

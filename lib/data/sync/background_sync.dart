@@ -10,6 +10,7 @@ import '../remote/api_client.dart';
 import '../local/offline_database.dart';
 import 'offline_runtime.dart';
 
+// # eventual connectivity: network-constrained Android worker, matching Santiago Quiroz's SyncWorker.
 /** Starts the Android background worker. */
 @pragma('vm:entry-point')
 void syncDispatcher() {

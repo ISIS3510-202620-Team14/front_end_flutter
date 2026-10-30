@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+// # local storage: account-scoped drafts and bases; Kotlin reference: Santiago Quiroz, ControlSincronizacion.
 /** Persists account-scoped attendance drafts. */
 class AttendanceDraftStore {
   /** Selects the account storage key. */

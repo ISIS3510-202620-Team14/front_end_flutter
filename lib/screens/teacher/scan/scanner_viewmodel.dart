@@ -103,8 +103,9 @@ class ScannerViewModel extends SafeNotifier {
     notifyListeners();
     try {
       final captured = await capture();
-      if (disposed || captured == null) return;
+      if (captured == null) return;
       _own(captured.path);
+      if (disposed) return;
       final page = ScannerPage(
         _pages.length + 1,
         captured.path,
@@ -125,6 +126,7 @@ class ScannerViewModel extends SafeNotifier {
 
   /** Starts no more than two page jobs at once. */
   void _pump() {
+    // # multithreading: two page jobs, matching Santiago Quiroz's ScanViewModel.
     // # micro opt
     while (!disposed && _active < 2 && _queue.isNotEmpty) {
       final page = _queue.removeFirst();
