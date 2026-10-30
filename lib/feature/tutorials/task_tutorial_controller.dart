@@ -296,13 +296,24 @@ class TaskTutorialController extends ChangeNotifier {
   ) {
     final started = <String, Set<String>>{};
     final completed = <String, Set<String>>{};
+    // # samuel charry contribution: F19 isolates damaged usage events.
     for (final operation in operations) {
+      final key = operation['key'];
       if (['failed', 'conflict'].contains(operation['state']) ||
           operation['action'] != 'create' ||
-          !(operation['key'] as String? ?? '').startsWith('events/')) {
+          key is! String ||
+          !key.startsWith('events/')) {
         continue;
       }
-      final event = jsonDecode(operation['body'] as String) as Map;
+      final body = operation['body'];
+      if (body is! String) continue;
+      Object? event;
+      try {
+        event = jsonDecode(body);
+      } on FormatException {
+        continue;
+      }
+      if (event is! Map) continue;
       final flow = event['tutorial_id'];
       final run = event['run_id'];
       if (flow is! String ||

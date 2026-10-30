@@ -185,13 +185,20 @@ class StudentListScanner {
   static List<ScannedRow> parseLines(
     List<({String text, double left, double top, double bottom})> source,
   ) {
-    if (source.isEmpty) return [];
+    // # samuel charry contribution: F17 keeps bad geometry out of row reconstruction.
+    final valid = source.where((line) {
+      return line.left.isFinite &&
+          line.top.isFinite &&
+          line.bottom.isFinite &&
+          line.bottom > line.top;
+    }).toList();
+    if (valid.isEmpty) return [];
     var height = 0.0;
-    for (final line in source) {
+    for (final line in valid) {
       height += line.bottom - line.top;
     }
-    final tolerance = height / source.length * 0.6;
-    final lines = List.of(source)
+    final tolerance = height / valid.length * 0.6;
+    final lines = List.of(valid)
       ..sort((a, b) {
         return (a.top + a.bottom).compareTo(b.top + b.bottom);
       });

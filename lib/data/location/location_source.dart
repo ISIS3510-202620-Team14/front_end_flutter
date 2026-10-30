@@ -2,20 +2,15 @@ import 'dart:math' as math;
 
 import 'package:geolocator/geolocator.dart';
 
-/** One reading of the phone position. It is only compared with the campuses and never stored. */
-class PositionReading {
-  const PositionReading({
-    required this.lat,
-    required this.lng,
-    required this.accuracy,
-  });
-  final double lat;
-  final double lng;
-  final double accuracy;
-}
+import 'position_reading.dart';
+export 'position_reading.dart';
 
 /** Reads the position once, asking for the permission only when the teacher has not answered yet. */
 class LocationSource {
+  /** Uses an injectable clock to reject stale fallback locations. */
+  LocationSource({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
+  final DateTime Function() _clock;
+  static const maxAge = Duration(minutes: 2);
   /** Asks for the permission when needed; false if the teacher denied it or location is off. */
   Future<bool> ensurePermission() async {
     try {
@@ -31,39 +26,58 @@ class LocationSource {
     }
   }
 
-  /** Current position, or null without permission, signal or in time. Never asks for the permission. */
+  // # samuel charry contribution: F24 rejects stale or invalid context.
+  /** Uses only recent locations after permission has been checked. */
   Future<PositionReading?> current() async {
     try {
-      final LocationPermission permission = await Geolocator.checkPermission();
+      final permission = await Geolocator.checkPermission();
       if (permission != LocationPermission.always &&
           permission != LocationPermission.whileInUse) {
         return null;
       }
-      final Position position = await Geolocator.getCurrentPosition(
+    } catch (_) {
+      return null;
+    }
+    try {
+      final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           timeLimit: Duration(seconds: 15),
         ),
       );
-      return PositionReading(
-        lat: position.latitude,
-        lng: position.longitude,
-        accuracy: position.accuracy,
-      );
+      return recentPosition(position, _clock());
     } catch (_) {
-      // Sin GPS a tiempo se usa la última posición conocida, si la hay.
       try {
-        final Position? last = await Geolocator.getLastKnownPosition();
-        if (last == null) return null;
-        return PositionReading(
-          lat: last.latitude,
-          lng: last.longitude,
-          accuracy: last.accuracy,
+        return recentPosition(
+          await Geolocator.getLastKnownPosition(),
+          _clock(),
         );
       } catch (_) {
         return null;
       }
     }
+  }
+
+  /** Rejects old fixes, invalid coordinates and unusable accuracy. */
+  static PositionReading? recentPosition(Position? position, DateTime now) {
+    if (position == null) return null;
+    final age = now.difference(position.timestamp);
+    if (age > maxAge ||
+        age < const Duration(seconds: -30) ||
+        !position.latitude.isFinite ||
+        position.latitude.abs() > 90 ||
+        !position.longitude.isFinite ||
+        position.longitude.abs() > 180 ||
+        !position.accuracy.isFinite ||
+        position.accuracy < 0 ||
+        position.accuracy > 200) {
+      return null;
+    }
+    return PositionReading(
+      lat: position.latitude,
+      lng: position.longitude,
+      accuracy: position.accuracy,
+    );
   }
 
   /** Distance in meters between two points (haversine). */

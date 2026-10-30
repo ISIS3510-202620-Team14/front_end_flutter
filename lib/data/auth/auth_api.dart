@@ -13,23 +13,45 @@ class AuthApi {
     return FirebaseAuth.instance.authStateChanges();
   }
 
-  /** Returns whether the backend managed to send the welcome email (Brevo). */
+  /** Returns whether Brevo accepted the welcome email request. */
   static Future<bool> register(
     String name,
     String email,
     String password, {
     List<Map<String, dynamic>> schools = const [],
+    ApiClient? client,
+    Future<void> Function(String)? signIn,
+    Future<void> Function(String, Map<String, Object>)? logEvent,
   }) async {
-    return _enter('register', {
-      'fullName': name,
-      'email': email,
-      'password': password,
-      'schools': schools,
-    });
+    return _enter(
+      'register',
+      {
+        'fullName': name,
+        'email': email,
+        'password': password,
+        'schools': schools,
+      },
+      client: client,
+      signIn: signIn,
+      logEvent: logEvent,
+    );
   }
 
-  static Future<void> login(String email, String password) async {
-    await _enter('login', {'email': email, 'password': password});
+  /** Opens a session with optional adapters for isolated tests. */
+  static Future<void> login(
+    String email,
+    String password, {
+    ApiClient? client,
+    Future<void> Function(String)? signIn,
+    Future<void> Function(String, Map<String, Object>)? logEvent,
+  }) async {
+    await _enter(
+      'login',
+      {'email': email, 'password': password},
+      client: client,
+      signIn: signIn,
+      logEvent: logEvent,
+    );
   }
 
   static Future<String> getIdToken() async {
@@ -51,8 +73,15 @@ class AuthApi {
     await FirebaseAuth.instance.signOut();
   }
 
-  static Future<bool> _enter(String route, Map<String, dynamic> body) async {
-    final api = ApiClient();
+  /** Authentication succeeds independently from optional telemetry. */
+  static Future<bool> _enter(
+    String route,
+    Map<String, dynamic> body, {
+    ApiClient? client,
+    Future<void> Function(String)? signIn,
+    Future<void> Function(String, Map<String, Object>)? logEvent,
+  }) async {
+    final api = client ?? ApiClient();
     try {
       final data = await api.request(
         'POST',
@@ -61,16 +90,26 @@ class AuthApi {
         authenticated: false,
       );
       final token = data['customToken'];
-      if (token is! String) {
+      if (token is! String || token.trim().isEmpty) {
         throw AuthError('El servidor no devolvió una sesión válida.');
       }
       ReportsRepository.clearCache();
-      await FirebaseAuth.instance.signInWithCustomToken(token);
+      if (signIn != null) {
+        await signIn(token);
+      } else {
+        await FirebaseAuth.instance.signInWithCustomToken(token);
+      }
       String eventName = 'login';
       if (route == 'register') {
         eventName = 'sign_up';
       }
-      await AnalyticsService.instance.log(eventName, {'method': 'password'});
+      // # samuel charry contribution: F28 telemetry cannot undo a valid login.
+      try {
+        final log = logEvent ?? AnalyticsService.instance.log;
+        await log(eventName, {
+          'method': 'password',
+        }).timeout(const Duration(seconds: 2));
+      } catch (_) {}
       // Only register sends welcomeEmailSent
       return data['welcomeEmailSent'] == true;
     } on ApiException catch (error) {
@@ -78,7 +117,7 @@ class AuthApi {
     } on FirebaseAuthException {
       throw AuthError('No pudimos abrir la sesión. Revisa tu conexión.');
     } finally {
-      api.dispose();
+      if (client == null) api.dispose();
     }
   }
 }
