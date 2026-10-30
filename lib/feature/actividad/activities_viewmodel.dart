@@ -26,10 +26,6 @@ class ActivitiesViewModel extends SafeNotifier {
   bool catalogLoaded = false;
   String selectedSubject;
   List<Activity> planned = [];
-  // "TUS ACTIVIDADES" card: how many planned activities came from the library and how many the teacher created.
-  int libraryCount = 0;
-  int customCount = 0;
-  bool usageLoaded = false;
   bool loading = false;
   bool saving = false;
   String? error;
@@ -37,18 +33,6 @@ class ActivitiesViewModel extends SafeNotifier {
     return _templates.where((ActivityTemplate activity) {
       return activity.subject == selectedSubject;
     }).toList();
-  }
-
-  int get usageTotal {
-    return libraryCount + customCount;
-  }
-
-  int get libraryPercent {
-    return usageTotal == 0 ? 0 : libraryCount * 100 ~/ usageTotal;
-  }
-
-  int get customPercent {
-    return usageTotal == 0 ? 0 : 100 - libraryPercent;
   }
 
   void selectSubject(String subject) {
@@ -73,8 +57,6 @@ class ActivitiesViewModel extends SafeNotifier {
     }
     try {
       planned = await _repository.load(DateTime.now());
-      _count(await _repository.loadAll());
-      usageLoaded = true;
     } catch (_) {
       error = 'No pudimos recuperar tu plan. Intenta de nuevo.';
     } finally {
@@ -90,40 +72,8 @@ class ActivitiesViewModel extends SafeNotifier {
     super.dispose();
   }
 
-  void _count(List<Activity> activities) {
-    libraryCount = activities.where((Activity activity) {
-      return activity.source == ActivitySource.library;
-    }).length;
-    customCount = activities.length - libraryCount;
-  }
-
   Future<bool> planFromLibrary(ActivityTemplate template) async {
     return _save(LibraryActivityCreator(template).createActivity());
-  }
-
-  /** Same checks as "Crear propia" in Kotlin; returns the error to show, or null when it was saved. */
-  Future<String?> createCustom(String title, String minutesText) async {
-    final String name = title.trim();
-    if (name.length < 3) {
-      return 'Escribe un nombre para la actividad.';
-    }
-    final int? minutes = int.tryParse(minutesText.trim());
-    if (minutes == null || minutes <= 0) {
-      return 'Indica la duración en minutos.';
-    }
-    if (minutes > 240 || name.length > 80) {
-      return 'Usa un nombre de máximo 80 caracteres y hasta 240 minutos.';
-    }
-    final bool saved = await _save(
-      CustomActivityCreator(
-        title: name,
-        subject: selectedSubject,
-        minutes: minutes,
-      ).createActivity(),
-    );
-    return saved
-        ? null
-        : error ?? 'No pudimos guardar la actividad. Intenta de nuevo.';
   }
 
   Future<bool> _save(Activity activity) async {
@@ -136,11 +86,6 @@ class ActivitiesViewModel extends SafeNotifier {
     try {
       await _repository.save(activity, DateTime.now());
       planned.insert(0, activity);
-      if (activity.source == ActivitySource.library) {
-        libraryCount++;
-      } else {
-        customCount++;
-      }
       return true;
     } catch (_) {
       error = 'No pudimos guardar la actividad. Revisa tu conexión.';

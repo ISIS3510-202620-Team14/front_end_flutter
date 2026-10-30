@@ -233,10 +233,9 @@ class OfflineGateway {
     if (path == 'registerSchools') return {'schools': list('schools')};
     if (path == 'activities') return {'activities': list('activityLibrary')};
     if (path == 'plans') {
-      // Without a date it returns every plan, used for the library vs own usage card.
       return {
         'activities': list('plans').where((item) {
-          return query['date'] == null || item['date'] == query['date'];
+          return item['date'] == query['date'];
         }).toList(),
       };
     }

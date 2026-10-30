@@ -159,7 +159,7 @@ class HoyView extends StatelessWidget {
               action: const QuickAction(
                 icon: Icons.menu_book_outlined,
                 title: 'Planear actividades',
-                subtitle: 'Usa la biblioteca o crea las tuyas',
+                subtitle: 'Elige actividades de la biblioteca',
               ),
               onTap: () {
                 _openActivities(context);
