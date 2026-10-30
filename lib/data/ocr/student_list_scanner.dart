@@ -1,5 +1,6 @@
 // lib/data/ocr/student_list_scanner.dart
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -24,7 +25,8 @@ class StudentListScanner {
 
   /** Marks a photo as owned by this scan, to delete it when closing. */
   void own(String path) {
-    if (!_closed) _photos.add(path);
+    _photos.add(path);
+    if (_closed) unawaited(_delete(path));
   }
 
   /** Reads a page and parses plain data on a worker isolate. */
@@ -44,6 +46,7 @@ class StudentListScanner {
       final lines = await _recognize(path, page);
       ocrMs = watch.elapsedMilliseconds;
       if (_closed) return [];
+      // # multithreading: worker parsing mirrors Santiago Quiroz's OCR pipeline.
       // # micro opt
       rows = await compute(
         parseLines,

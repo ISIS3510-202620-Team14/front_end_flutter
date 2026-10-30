@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../domain/model/attendance_conflict.dart';
 import '../local/offline_database.dart';
 
+// # local storage: durable conflict review, matching Santiago Quiroz's replaced marks.
 /** Stores attendance outcomes for one account. */
 class AttendanceConflicts {
   /** Uses the account's existing local database. */
