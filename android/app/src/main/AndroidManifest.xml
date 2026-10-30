@@ -1,7 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- F11: una lectura de ubicación para sugerir la institución del día. -->
+    <!-- F11: location lecture in order to suggest the school on that day. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- BQ10: Own camera in order to scan the list with light and stillness management. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
         android:label="front_end_flutter"
         android:name="${applicationName}"

@@ -1,20 +1,19 @@
+// lib/data/ocr/student_list_scanner.dart
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
+import 'package:front_end_flutter/domain/model/capture_conditions.dart';
 import 'package:front_end_flutter/domain/model/scanned_row.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../telemetria/analytics_service.dart';
 
-/** Captures photos and reads each page locally. */
+/** Reads each captured page locally; the photo itself comes from CameraCaptureView. */
 class StudentListScanner {
-  /** Allows a camera or event logger to be replaced in tests. */
-  StudentListScanner({ImagePicker? picker, this.logger})
-    : _picker = picker ?? ImagePicker();
-  final ImagePicker _picker;
+  /** Allows an event logger to be replaced in tests. */
+  StudentListScanner({this.logger});
   final Future<void> Function(String, Map<String, Object>)? logger;
   final Set<String> _photos = {};
   final Set<String> _reading = {};
@@ -23,32 +22,17 @@ class StudentListScanner {
   static const _channel = MethodChannel('enad/scanner');
   final String _session = const Uuid().v4();
 
-  /** Captures one photo without waiting for OCR. */
-  Future<String?> capture() async {
-    if (_closed) return null;
-    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
-      throw UnsupportedError(
-        'El escáner requiere la aplicación Android o iOS.',
-      );
-    }
-    // # micro opt
-    final photo = await _picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 90,
-      maxWidth: 2000,
-      maxHeight: 2000,
-    );
-    if (photo == null) return null;
-    _photos.add(photo.path);
-    if (_closed) {
-      await _delete(photo.path);
-      return null;
-    }
-    return photo.path;
+  /** Marks a photo as owned by this scan, to delete it when closing. */
+  void own(String path) {
+    if (!_closed) _photos.add(path);
   }
 
   /** Reads a page and parses plain data on a worker isolate. */
-  Future<List<ScannedRow>> read(String path, int page) async {
+  Future<List<ScannedRow>> read(
+    String path,
+    int page,
+    CaptureConditions conditions,
+  ) async {
     if (_closed) return [];
     _reading.add(path);
     final watch = Stopwatch()..start();
@@ -82,6 +66,7 @@ class StudentListScanner {
           'parseMs': parseMs,
           'totalMs': watch.elapsedMilliseconds,
           'rows': rows.length,
+          ...conditions.toAnalytics(),
         };
         try {
           if (logger != null) {
@@ -221,7 +206,7 @@ class StudentListScanner {
     return parseRows(rows);
   }
 
-  /** Reads names, codes, grades and ages using Kotlin's row rules. */
+  /** Reads names, codes, grades and ages using same rules as Kotlin. */
   static List<ScannedRow> parseRows(Iterable<String> lines) {
     final rows = <ScannedRow>[];
     for (final line in lines) {
