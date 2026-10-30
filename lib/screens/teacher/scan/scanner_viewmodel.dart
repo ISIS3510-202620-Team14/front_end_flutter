@@ -4,7 +4,9 @@ import 'dart:collection';
 
 import 'package:uuid/uuid.dart';
 
+import 'package:front_end_flutter/data/telemetria/scan_review_log.dart';
 import 'package:front_end_flutter/domain/model/capture_conditions.dart';
+import 'package:front_end_flutter/domain/model/scan_review.dart';
 import 'package:front_end_flutter/domain/model/scanned_row.dart';
 import 'package:front_end_flutter/domain/model/scanner_page.dart';
 export 'package:front_end_flutter/domain/model/scanned_row.dart';
@@ -24,23 +26,28 @@ class ScannerViewModel extends SafeNotifier {
     Future<List<ScannedRow>> Function(String, int, CaptureConditions)? read,
     void Function(String)? own,
     Future<void> Function()? close,
+    ScanReviewLog? reviewLog,
   }) {
     final service = scanner ?? StudentListScanner();
     _capture = capture;
     _read = read ?? service.read;
     _own = own ?? service.own;
     _close = close ?? service.close;
+    _reviewLog = reviewLog ?? ScanReviewLog();
   }
   Future<CapturedPhoto?> Function()? _capture;
   late final Future<List<ScannedRow>> Function(String, int, CaptureConditions)
   _read;
   late final void Function(String) _own;
   late final Future<void> Function() _close;
+  late final ScanReviewLog _reviewLog;
   final _queue = Queue<ScannerPage>();
   final Map<int, List<ScannedRow>> _finished = {};
   final List<ScannerPage> _pages = [];
   final List<ScannedRow> _rows = [];
   final List<int> _rowIds = [];
+  // What the OCR read versus what the teacher leaves (BQ 11, only counts).
+  final _review = ScanReview();
   final bool allowProvisional;
   final Map<int, String> _provisionalCodes = {};
   int _nextRowId = 0;
@@ -153,6 +160,7 @@ class ScannerViewModel extends SafeNotifier {
       final ready = _finished.remove(++_delivered)!;
       for (final row in ready) {
         if (seen.add(StudentListScanner.rowKey(row))) {
+          _review.read(_nextRowId, row);
           _rows.add(row);
           _rowIds.add(_nextRowId++);
         }
@@ -165,12 +173,14 @@ class ScannerViewModel extends SafeNotifier {
   /** Changes a reviewed code. */
   void setCode(int index, String code) {
     _rows[index] = _rows[index].copyWith(code: code.trim());
+    _review.update(_rowIds[index], _rows[index]);
     notifyListeners();
   }
 
   /** Changes a reviewed name. */
   void rename(int index, String name) {
     _rows[index] = _rows[index].copyWith(name: name.trim());
+    _review.update(_rowIds[index], _rows[index]);
     notifyListeners();
   }
 
@@ -211,9 +221,21 @@ class ScannerViewModel extends SafeNotifier {
   /** Removes one reviewed student. */
   void remove(int index) {
     _provisionalCodes.remove(_rowIds[index]);
+    _review.discard(_rowIds[index]);
     _rows.removeAt(index);
     _rowIds.removeAt(index);
     notifyListeners();
+  }
+
+  /**
+   * Sends what the teacher kept, corrected and deleted just before importing (BQ 11).
+   * The source is attendance when provisional codes are allowed, like exigirCodigo in Kotlin.
+   */
+  void reportReview() {
+    final source = allowProvisional
+        ? ScanSource.attendance
+        : ScanSource.manageStudents;
+    unawaited(_reviewLog.record(_review.summary, source));
   }
 
   /** Returns only rows ready for import. */

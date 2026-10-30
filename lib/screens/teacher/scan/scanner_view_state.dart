@@ -67,6 +67,8 @@ class _ScannerViewState extends State<ScannerView> {
           importAction = null;
         } else {
           importAction = () {
+            // It registers before closing: after the ViewModel no longer exists.
+            _viewModel.reportReview();
             return Navigator.of(context).pop(valid);
           };
         }

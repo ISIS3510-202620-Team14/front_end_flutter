@@ -89,6 +89,9 @@ class _CameraCaptureViewState extends State<CameraCaptureView>
         _controller = controller;
         _initializing = false;
       });
+      // When the app comes back from the background this runs again: the previous
+      // subscription must be cancelled or every reading would be handled twice.
+      await _sensorSub?.cancel();
       _sensorSub = _sensors.readings.listen((reading) {
         if (!mounted) return;
         setState(() {
@@ -157,7 +160,7 @@ class _CameraCaptureViewState extends State<CameraCaptureView>
         _torch = on;
       });
     } catch (_) {
-      // Algunos celulares no tienen linterna controlable; se ignora.
+      // Some devices don't have a controllable flashlight; ignore.
     }
   }
 
@@ -179,7 +182,7 @@ class _CameraCaptureViewState extends State<CameraCaptureView>
       await controller.setExposurePoint(point);
       await controller.setFocusPoint(point);
     } catch (_) {
-      // No todos los celulares permiten elegir el punto de enfoque.
+      // Not all phones allow choosing the focus point.
     }
   }
 
