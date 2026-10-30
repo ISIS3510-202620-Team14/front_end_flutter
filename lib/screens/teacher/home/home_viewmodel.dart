@@ -1,3 +1,4 @@
+// lib/screens/teacher/home/home_viewmodel.dart
 import 'package:front_end_flutter/domain/model/user_profile.dart';
 import 'package:front_end_flutter/domain/model/subject_progress.dart';
 import 'package:front_end_flutter/ui/state/safe_notifier.dart';
@@ -7,7 +8,7 @@ import 'package:front_end_flutter/screens/teacher/students/students_viewmodel.da
 class HomeViewModel extends SafeNotifier {
   HomeViewModel({required this.profile, StudentsViewModel? students})
     : studentsViewModel = students ?? StudentsViewModel() {
-    studentsViewModel.addListener(notifyListeners);
+    studentsViewModel.addListener(_onStudentsChanged);
   }
   final UserProfile profile;
   final StudentsViewModel studentsViewModel;
@@ -17,8 +18,21 @@ class HomeViewModel extends SafeNotifier {
 
   final String sectionTitle = 'Hoy';
   static const List<String> subjectTitles = ['Lectura', 'Matemáticas'];
+
+  // # micro opt
+  // The cards are rebuilt on every frame that changes, but the numbers only change
+  // when the students change.
+  List<SubjectProgress>? _subjects;
+
   List<SubjectProgress> get subjects {
-    return [for (final title in subjectTitles) _progressOf(title)];
+    return _subjects ??= [
+      for (final title in subjectTitles) _progressOf(title),
+    ];
+  }
+
+  void _onStudentsChanged() {
+    _subjects = null;
+    notifyListeners();
   }
 
   Future<void> changeUser() async {
@@ -30,7 +44,8 @@ class HomeViewModel extends SafeNotifier {
     final total = studentsViewModel.activeCount;
     int percent = 0;
     if (total > 0) {
-      percent = (evaluated / total * 100).round();
+      // Whole division like Kotlin: 199 of 200 is 99%, never 100% while one is missing.
+      percent = evaluated * 100 ~/ total;
     }
     return SubjectProgress(
       title: title,
@@ -42,7 +57,7 @@ class HomeViewModel extends SafeNotifier {
 
   @override
   void dispose() {
-    studentsViewModel.removeListener(notifyListeners);
+    studentsViewModel.removeListener(_onStudentsChanged);
     studentsViewModel.dispose();
     super.dispose();
   }
