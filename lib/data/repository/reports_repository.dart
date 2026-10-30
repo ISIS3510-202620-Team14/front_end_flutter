@@ -4,7 +4,10 @@ import 'package:front_end_flutter/data/remote/api_client.dart';
 
 /** Reads the admin reports and keeps them in memory, like ReportesRepository in the Kotlin app. */
 class ReportsRepository {
-  ReportsRepository(this._api);
+  /** Uses the supplied API and an optional isolated cache. */
+  ReportsRepository(this._api, {MemoryCache? reportCache})
+    : _reportCache = reportCache ?? cache;
+  final MemoryCache _reportCache;
   final ApiClient _api;
   // The cache for storing admin reports.
   static final MemoryCache cache = MemoryCache(name: 'reportes');
@@ -19,7 +22,7 @@ class ReportsRepository {
     String week, {
     bool force = false,
   }) {
-    return cache.getOrLoad<Map<String, dynamic>>(
+    return _reportCache.getOrLoad<Map<String, dynamic>>(
       'conflictos:$week',
       () async {
         final Map<String, dynamic> result = await _api.request(
@@ -31,16 +34,58 @@ class ReportsRepository {
         return result;
       },
       force: force,
-      // The current week is still changing: expires. A closed week no longer does.
-      expires: (Map<String, dynamic> result) {
-        return result['provisional'] != false;
+      // Offline attendance can arrive after its week ends.
+    );
+  }
+
+  /** Reads only Flutter version 2 steps; mixed reports are rejected. */
+  Future<Map<String, dynamic>> tutorialSteps({bool force = false}) {
+    return _reportCache.getOrLoad<Map<String, dynamic>>(
+      'guides:flutter:2:8',
+      () async {
+        final result = await _api.request(
+          'GET',
+          'tutorials/report',
+          query: {'weeks': '8', 'platform': 'flutter', 'version': '2'},
+        );
+        if (result['platform'] != 'flutter' ||
+            result['version'] != 2 ||
+            result['tutorials'] is! List) {
+          throw const ApiException(502, 'El reporte recibido está incompleto.');
+        }
+        for (final row in result['tutorials'] as List) {
+          if (row is! Map ||
+              row['id'] is! String ||
+              row['runs'] is! num ||
+              row['completed'] is! num ||
+              row['abandonedAtStep'] is! List ||
+              row['skippedSteps'] is! List) {
+            throw const ApiException(
+              502,
+              'El reporte recibido está incompleto.',
+            );
+          }
+          for (final step in [
+            ...row['abandonedAtStep'],
+            ...row['skippedSteps'],
+          ]) {
+            if (step is! Map || step['step'] is! int || step['runs'] is! num) {
+              throw const ApiException(
+                502,
+                'El reporte recibido está incompleto.',
+              );
+            }
+          }
+        }
+        return result;
       },
+      force: force,
     );
   }
 
   /** Teachers who opened the app in a week (Monday as yyyy-MM-dd). */
   Future<Map<String, dynamic>> weeklyOpens(String week, {bool force = false}) {
-    return cache.getOrLoad<Map<String, dynamic>>(
+    return _reportCache.getOrLoad<Map<String, dynamic>>(
       'aperturas:$week',
       () async {
         final Map<String, dynamic> result = await _api.request(
@@ -62,7 +107,7 @@ class ReportsRepository {
 
   /** Grouping sessions that did not reach the server within 24 h, per week. */
   Future<Map<String, dynamic>> groupingSync({bool force = false}) {
-    return cache.getOrLoad<Map<String, dynamic>>(
+    return _reportCache.getOrLoad<Map<String, dynamic>>(
       'sincronizacion',
       () async {
         final Map<String, dynamic> result = await _api.request(
@@ -89,7 +134,7 @@ class ReportsRepository {
     String? subject,
     bool force = false,
   }) {
-    return cache.getOrLoad<Map<String, dynamic>>(
+    return _reportCache.getOrLoad<Map<String, dynamic>>(
       'clasificacion:${subject ?? 'todas'}',
       () async {
         final Map<String, dynamic> result = await _api.request(
@@ -108,21 +153,25 @@ class ReportsRepository {
 
   /** Activities most used by teachers across all schools (BQ #11). */
   Future<Map<String, dynamic>> topActivities({bool force = false}) {
-    return cache.getOrLoad<Map<String, dynamic>>('actividades', () async {
-      final Map<String, dynamic> result = await _api.request(
-        'GET',
-        'analytics/top-activities',
-      );
-      if (result['total'] is! num || result['activities'] is! List) {
-        throw const ApiException(502, 'El reporte recibido está incompleto.');
-      }
-      return result;
-    }, force: force);
+    return _reportCache.getOrLoad<Map<String, dynamic>>(
+      'actividades',
+      () async {
+        final Map<String, dynamic> result = await _api.request(
+          'GET',
+          'analytics/top-activities',
+        );
+        if (result['total'] is! num || result['activities'] is! List) {
+          throw const ApiException(502, 'El reporte recibido está incompleto.');
+        }
+        return result;
+      },
+      force: force,
+    );
   }
 
   /** Planned and worked hours per week, newest week first (last 8 weeks). */
   Future<Map<String, dynamic>> hours({bool force = false}) {
-    return cache.getOrLoad<Map<String, dynamic>>('horas', () async {
+    return _reportCache.getOrLoad<Map<String, dynamic>>('horas', () async {
       final Map<String, dynamic> result = await _api.request(
         'GET',
         'workedHours/report',
@@ -143,24 +192,28 @@ class ReportsRepository {
 
   /** Assessments per subject, overall and by grade (BQ #12). */
   Future<Map<String, dynamic>> assessmentsByGrade({bool force = false}) {
-    return cache.getOrLoad<Map<String, dynamic>>('evaluaciones', () async {
-      final Map<String, dynamic> result = await _api.request(
-        'GET',
-        'analytics/assessments-by-grade',
-      );
-      if (result['total'] is! num ||
-          result['overall'] is! Map ||
-          result['grades'] is! List) {
-        throw const ApiException(502, 'El reporte recibido está incompleto.');
-      }
-      return result;
-    }, force: force);
+    return _reportCache.getOrLoad<Map<String, dynamic>>(
+      'evaluaciones',
+      () async {
+        final Map<String, dynamic> result = await _api.request(
+          'GET',
+          'analytics/assessments-by-grade',
+        );
+        if (result['total'] is! num ||
+            result['overall'] is! Map ||
+            result['grades'] is! List) {
+          throw const ApiException(502, 'El reporte recibido está incompleto.');
+        }
+        return result;
+      },
+      force: force,
+    );
   }
 
   /** Every active school for an administrator; [search] filters by name or municipality. */
   Future<Map<String, dynamic>> schools(String search, {bool force = false}) {
     final String text = search.trim();
-    return cache.getOrLoad<Map<String, dynamic>>(
+    return _reportCache.getOrLoad<Map<String, dynamic>>(
       'instituciones:$text',
       () async {
         final Map<String, dynamic> result = await _api.request(
@@ -182,7 +235,7 @@ class ReportsRepository {
     String schoolId, {
     bool force = false,
   }) {
-    return cache.getOrLoad<Map<String, dynamic>>(
+    return _reportCache.getOrLoad<Map<String, dynamic>>(
       'docentes:$schoolId',
       () async {
         final Map<String, dynamic> result = await _api.request(
