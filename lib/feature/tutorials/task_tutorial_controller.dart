@@ -31,6 +31,16 @@ class TaskTutorialController extends ChangeNotifier {
     'activities': 'Planear actividades',
   };
   static const steps = {
+    'hours': [
+      'Abre Reportar horas',
+      'Elige tu institución',
+      'Revisa la fecha',
+      'Horas programadas',
+      'Horas realizadas',
+      'Cuéntanos el motivo',
+      'Guarda tu reporte',
+      '¡Reporte guardado!',
+    ],
     'attendance': [
       'Abre Reportar asistencia',
       'Revisa el curso y la fecha',
@@ -172,19 +182,7 @@ class TaskTutorialController extends ChangeNotifier {
   /** Describes the current step without claiming an upload. */
   String get title {
     if (complete && !_confirmed) return '¡Guardado en este celular!';
-    if (flow != 'hours') {
-      return steps[flow]![step];
-    }
-    return const [
-      'Abre Reportar horas',
-      'Elige tu institución',
-      'Revisa la fecha',
-      'Horas programadas',
-      'Horas realizadas',
-      'Cuéntanos el motivo',
-      'Guarda tu reporte',
-      '¡Reporte guardado!',
-    ][step];
+    return steps[flow]![step];
   }
 
   /** Explains the step and the actual save status. */
