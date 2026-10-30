@@ -1,4 +1,6 @@
 import 'package:front_end_flutter/data/repository/app_opens_repository.dart';
+import 'package:front_end_flutter/data/telemetria/analytics_service.dart';
+import 'package:front_end_flutter/domain/model/engagement_risk.dart';
 import 'package:front_end_flutter/ui/state/safe_notifier.dart';
 
 /** Registers this session's open and exposes the weekly count against the goal of two. */
@@ -10,6 +12,10 @@ class WeeklyOpensViewModel extends SafeNotifier {
   int pending = 0;
   bool loading = false;
   bool _started = false;
+  // Type 5 BQ: whether the opens are dropping, so Hoy shows the card to come back.
+  EngagementRisk risk = EngagementRisk.none;
+  bool _riskLogged = false;
+  bool dismissedRisk = false;
 
   bool get reachedGoal {
     return count >= goal;
@@ -53,10 +59,45 @@ class WeeklyOpensViewModel extends SafeNotifier {
     try {
       count = await repository.weeklyCount();
       pending = await repository.pendingCount();
+      risk = EngagementRisk.fromWeeklyOpens(
+        await repository.completedWeeksOpens(EngagementRisk.baselineWeeks + 1),
+      );
+      _logRisk();
     } catch (_) {
       // Sin lectura local no hay nada que mostrar: se conserva el último valor.
     }
     loading = false;
     notifyListeners();
+  }
+
+  /** The re-engagement card is shown at most once per session in analytics. */
+  void _logRisk() {
+    if (!risk.atRisk || _riskLogged) return;
+    _riskLogged = true;
+    _track('reengagement_card_shown');
+  }
+
+  void _track(String name) {
+    AnalyticsService.instance
+        .log(name, {
+          'lastWeekOpens': risk.lastWeek,
+          'usualWeekOpens': risk.usualWeek,
+        })
+        .catchError((Object _) {});
+  }
+
+  /** The teacher used the card: hide it for this session and record it. */
+  void acceptRisk() {
+    _track('reengagement_card_used');
+    dismissRisk();
+  }
+
+  void dismissRisk() {
+    dismissedRisk = true;
+    notifyListeners();
+  }
+
+  bool get showsRisk {
+    return risk.atRisk && !dismissedRisk;
   }
 }
