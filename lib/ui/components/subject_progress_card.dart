@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/domain/model/subject_progress.dart';
+import 'package:front_end_flutter/domain/model/last_assessment.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
 
 class SubjectProgressCard extends StatelessWidget {
@@ -49,6 +50,28 @@ class SubjectProgressCard extends StatelessWidget {
             '${data.evaluated} de ${data.total} estudiantes evaluados',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+          if (data.overdue > 0) ...[
+            const SizedBox(height: 10),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppTheme.pendingBackground,
+                borderRadius: BorderRadius.circular(50),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                child: Text(
+                  data.overdue == 1
+                      ? '1 estudiante lleva más de ${LastAssessment.limitDays} días sin evaluarse'
+                      : '${data.overdue} estudiantes llevan más de ${LastAssessment.limitDays} días sin evaluarse',
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: AppTheme.pendingText),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [

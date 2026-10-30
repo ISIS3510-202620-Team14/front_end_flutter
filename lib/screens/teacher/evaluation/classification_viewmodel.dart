@@ -1,3 +1,4 @@
+import 'package:front_end_flutter/domain/model/last_assessment.dart';
 import 'package:front_end_flutter/ui/theme/level_palette.dart';
 import 'package:front_end_flutter/ui/state/safe_notifier.dart';
 import 'package:flutter/material.dart';
@@ -119,10 +120,32 @@ class ClassificationViewModel extends SafeNotifier {
     }).toList();
   }
 
+  /** Days since the student's last assessment in this subject; null for withdrawn or never assessed. */
+  int? daysSinceAssessment(Student student) {
+    if (student.withdrawn) return null;
+    return LastAssessment.daysSince(
+      student.levelDates[title],
+      LastAssessment.todayInColombia(),
+    );
+  }
+
+  /** Students of a level, the ones that have gone longest without an assessment first, like Kotlin. */
   List<Student> studentsIn(String levelName) {
-    return _visibleStudents.where((s) {
+    final List<Student> students = _visibleStudents.where((s) {
       return levelOf(s) == levelName;
     }).toList();
+    if (levelName == withdrawn) return students;
+    // Ties keep the list order, so the sort stays stable like sortedByDescending in Kotlin.
+    final List<Student> original = [...students];
+    students.sort((Student a, Student b) {
+      final int byDays = (daysSinceAssessment(b) ?? 0).compareTo(
+        daysSinceAssessment(a) ?? 0,
+      );
+      return byDays != 0
+          ? byDays
+          : original.indexOf(a).compareTo(original.indexOf(b));
+    });
+    return students;
   }
 
   bool isExpanded(int number) {

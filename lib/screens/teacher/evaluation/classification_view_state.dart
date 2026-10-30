@@ -77,6 +77,7 @@ class _ClassificationViewState extends State<ClassificationView> {
         );
       },
       level: _viewModel.levelOf(student),
+      daysSinceAssessment: _viewModel.daysSinceAssessment(student),
       expanded: _viewModel.isExpanded(student.number),
       onToggle: () {
         return _viewModel.toggleExpanded(student.number);

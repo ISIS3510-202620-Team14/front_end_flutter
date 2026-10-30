@@ -15,6 +15,8 @@ class Student {
   final int? sample;
   final bool withdrawn;
   final Map<String, String> levels;
+  // Date of the last assessment per subject title, as the backend sends it (BQ days since last assessment).
+  final Map<String, String> levelDates;
 
   bool get hasRequiredDemographics {
     return (sex == 'F' || sex == 'M') && StudentAge.isValid(age);
@@ -35,6 +37,7 @@ class Student {
     this.sample,
     this.withdrawn = false,
     this.levels = const {},
+    this.levelDates = const {},
   });
 
   Student copyWith({
@@ -44,6 +47,7 @@ class Student {
     int? sample,
     bool? withdrawn,
     Map<String, String>? levels,
+    Map<String, String>? levelDates,
   }) {
     return Student(
       id: id,
@@ -60,6 +64,7 @@ class Student {
       sample: sample ?? this.sample,
       withdrawn: withdrawn ?? this.withdrawn,
       levels: levels ?? this.levels,
+      levelDates: levelDates ?? this.levelDates,
     );
   }
 }

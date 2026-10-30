@@ -59,12 +59,16 @@ class StudentApiAdapter {
   Student toDomain(Map<String, dynamic> json, int number) {
     final levelsJson = json['levels'] as Map<String, dynamic>? ?? {};
     final levels = <String, String>{};
+    final levelDates = <String, String>{};
     for (final title in ['Lectura', 'Matemáticas']) {
       final entry = levelsJson[subjectToBackend(title)];
       if (entry != null) {
         levels[title] = levelBackendToLabel(
           (entry['clave'] ?? entry['level']) as String,
         );
+        if (entry['date'] is String) {
+          levelDates[title] = entry['date'] as String;
+        }
       }
     }
     return Student(
@@ -82,6 +86,7 @@ class StudentApiAdapter {
       sample: json['sample'] as int?,
       withdrawn: json['retired'] as bool? ?? false,
       levels: levels,
+      levelDates: levelDates,
     );
   }
 }

@@ -252,6 +252,8 @@ class _StudentCardState extends State<StudentCard> {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
+            if (widget.daysSinceAssessment != null)
+              _AssessmentAge(days: widget.daysSinceAssessment!),
             if (widget.onHistory != null)
               TextButton.icon(
                 onPressed: widget.onHistory,
@@ -419,5 +421,37 @@ class _StudentCardState extends State<StudentCard> {
     } else {
       return student.sex;
     }
+  }
+}
+
+/** BQ: days since the last assessment; over the limit it shows as an amber pill, like the Kotlin card. */
+class _AssessmentAge extends StatelessWidget {
+  const _AssessmentAge({required this.days});
+  final int days;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool overdue = LastAssessment.isOverdue(days);
+    final TextStyle? style = Theme.of(context).textTheme.labelSmall
+        ?.copyWith(color: overdue ? AppTheme.pendingText : AppTheme.softInk);
+    final Text text = Text(LastAssessment.label(days), style: style);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: overdue
+          ? DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppTheme.pendingBackground,
+                borderRadius: BorderRadius.circular(50),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                child: text,
+              ),
+            )
+          : text,
+    );
   }
 }

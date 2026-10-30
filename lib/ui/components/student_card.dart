@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:front_end_flutter/domain/model/student_age.dart';
 import 'package:front_end_flutter/domain/model/level.dart';
 import 'package:front_end_flutter/domain/model/student.dart';
+import 'package:front_end_flutter/domain/model/last_assessment.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
 import 'package:front_end_flutter/ui/theme/input_styles.dart';
 import 'package:front_end_flutter/ui/components/level_chip.dart';
@@ -22,6 +23,7 @@ class StudentCard extends StatefulWidget {
     required this.levels,
     required this.withdrawnLevel,
     required this.onLevelSelected,
+    this.daysSinceAssessment,
   });
   final Student student;
   final String? level;
@@ -33,6 +35,8 @@ class StudentCard extends StatefulWidget {
   final List<Level> levels;
   final Level withdrawnLevel;
   final Future<void> Function(String level) onLevelSelected;
+  // Days since the last assessment in the subject; null hides the line.
+  final int? daysSinceAssessment;
   @override
   State<StudentCard> createState() {
     return _StudentCardState();

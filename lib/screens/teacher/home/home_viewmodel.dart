@@ -1,5 +1,7 @@
 import 'package:front_end_flutter/domain/model/user_profile.dart';
 import 'package:front_end_flutter/domain/model/subject_progress.dart';
+import 'package:front_end_flutter/domain/model/last_assessment.dart';
+import 'package:front_end_flutter/domain/model/student.dart';
 import 'package:front_end_flutter/ui/state/safe_notifier.dart';
 import 'package:front_end_flutter/data/auth/auth_api.dart';
 import 'package:front_end_flutter/screens/teacher/students/students_viewmodel.dart';
@@ -37,6 +39,12 @@ class HomeViewModel extends SafeNotifier {
       percent: percent,
       evaluated: evaluated,
       total: total,
+      overdue: LastAssessment.overdueCount(
+        studentsViewModel.students
+            .where((Student student) => !student.withdrawn)
+            .map((Student student) => student.levelDates[title]),
+        LastAssessment.todayInColombia(),
+      ),
     );
   }
 
