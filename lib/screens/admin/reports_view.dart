@@ -5,9 +5,6 @@ import 'package:front_end_flutter/screens/admin/attendance_conflicts_report.dart
 import 'package:front_end_flutter/screens/admin/classification_report.dart';
 import 'package:front_end_flutter/screens/admin/grouping_sync_report.dart';
 import 'package:front_end_flutter/screens/admin/hours_report.dart';
-import 'package:front_end_flutter/screens/admin/scan_quality_report.dart';
-import 'package:front_end_flutter/screens/admin/scan_review_report.dart';
-import 'package:front_end_flutter/screens/admin/tutorial_steps_report.dart';
 import 'package:front_end_flutter/screens/admin/top_activities_report.dart';
 import 'package:front_end_flutter/screens/admin/weekly_opens_report.dart';
 
@@ -19,10 +16,7 @@ class ReportIndex {
   static const hours = 3;
   static const activities = 4;
   static const conflicts = 5;
-  static const scanQuality = 6;
-  static const assessments = 7;
-  static const scanReview = 8;
-  static const tutorials = 9;
+  static const assessments = 6;
 }
 
 /** Reports tab of the admin portal, one chip per report like the Kotlin portal. */
@@ -45,10 +39,7 @@ class _ReportsViewState extends State<ReportsView> {
     'Horas',
     'Actividades',
     'Conflictos',
-    'Escaneo',
     'Evaluaciones',
-    'Revisión',
-    'Guías',
   ];
   late int _selected = widget.initial;
 
@@ -78,12 +69,6 @@ class _ReportsViewState extends State<ReportsView> {
           icon: const Icon(Icons.assignment_late_outlined),
           label: const Text('Conflictos de asistencia'),
         );
-      case ReportIndex.scanQuality:
-        return const ScanQualityReport();
-      case ReportIndex.scanReview:
-        return const ScanReviewReport();
-      case ReportIndex.tutorials:
-        return const TutorialStepsReport();
       default:
         return const AssessmentsReport();
     }

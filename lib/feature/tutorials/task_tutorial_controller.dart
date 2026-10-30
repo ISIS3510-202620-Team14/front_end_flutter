@@ -54,26 +54,6 @@ class TaskTutorialController extends ChangeNotifier {
       '¡Actividad agregada!',
     ],
   };
-  static const hoursSteps = [
-    'Abre Reportar horas',
-    'Elige tu institución',
-    'Revisa la fecha',
-    'Horas programadas',
-    'Horas realizadas',
-    'Cuéntanos el motivo',
-    'Guarda tu reporte',
-    '¡Reporte guardado!',
-  ];
-
-  /** "Paso 2: Elige el área" for the admin report; steps arrive from 0. */
-  static String stepName(String id, int step) {
-    final List<String>? titles = id == 'hours' ? hoursSteps : steps[id];
-    if (titles == null || step < 0 || step >= titles.length) {
-      return 'Paso ${step + 1}';
-    }
-    return 'Paso ${step + 1}: ${titles[step]}';
-  }
-
   static const descriptions = {
     'attendance': [
       'Toca el botón resaltado.',
@@ -195,7 +175,16 @@ class TaskTutorialController extends ChangeNotifier {
     if (flow != 'hours') {
       return steps[flow]![step];
     }
-    return hoursSteps[step];
+    return const [
+      'Abre Reportar horas',
+      'Elige tu institución',
+      'Revisa la fecha',
+      'Horas programadas',
+      'Horas realizadas',
+      'Cuéntanos el motivo',
+      'Guarda tu reporte',
+      '¡Reporte guardado!',
+    ][step];
   }
 
   /** Explains the step and the actual save status. */
