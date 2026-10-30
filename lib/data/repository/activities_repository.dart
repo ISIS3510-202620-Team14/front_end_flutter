@@ -35,13 +35,36 @@ class ActivitiesRepository {
         .substring(0, 10);
   }
 
+  /** Subject as the backend stores it ('matematicas' or 'lectura'). */
+  static String subjectKey(String subject) {
+    return subject == 'Matemáticas' || subject == 'matematicas'
+        ? 'matematicas'
+        : 'lectura';
+  }
+
+  static String _subjectLabel(Object? subject) {
+    if (subject == 'lectura') return 'Lectura';
+    if (subject == 'matematicas') return 'Matemáticas';
+    return subject as String;
+  }
+
+  /** Activities planned that day. */
   Future<List<Activity>> load(DateTime date) async {
+    return _read(dateKey(date));
+  }
+
+  /** Every activity the teacher planned, for the library vs own usage card. */
+  Future<List<Activity>> loadAll() async {
+    return _read(null);
+  }
+
+  Future<List<Activity>> _read(String? date) async {
     final List<Map<String, dynamic>> documents;
     if (OfflineRuntime.current != null) {
       final response = await ApiClient().request(
         'GET',
         'plans',
-        query: {'date': dateKey(date)},
+        query: {'date': ?date},
       );
       documents = List<Map<String, dynamic>>.from(
         response['activities'] as List,
@@ -57,7 +80,7 @@ class ActivitiesRepository {
     }
     final activities = <Activity>[];
     for (final data in documents) {
-      if (data['date'] != dateKey(date)) {
+      if (date != null && data['date'] != date) {
         continue;
       }
       if (data['source'] == 'library') {
@@ -65,11 +88,7 @@ class ActivitiesRepository {
           LibraryActivity(
             id: data['activityId'] as String,
             title: data['title'] as String,
-            subject: data['subject'] == 'lectura'
-                ? 'Lectura'
-                : data['subject'] == 'matematicas'
-                ? 'Matemáticas'
-                : data['subject'] as String,
+            subject: _subjectLabel(data['subject']),
             minutes: data['minutes'] as int,
             templateId: data['templateId'] as String,
           ),
@@ -79,11 +98,7 @@ class ActivitiesRepository {
           CustomActivity(
             id: data['activityId'] as String,
             title: data['title'] as String,
-            subject: data['subject'] == 'lectura'
-                ? 'Lectura'
-                : data['subject'] == 'matematicas'
-                ? 'Matemáticas'
-                : data['subject'] as String,
+            subject: _subjectLabel(data['subject']),
             minutes: data['minutes'] as int,
           ),
         );
@@ -93,18 +108,16 @@ class ActivitiesRepository {
   }
 
   Future<void> save(Activity activity, DateTime date) async {
-    if (activity.source != ActivitySource.library) {
-      throw StateError('Solo puedes planear actividades de la biblioteca.');
-    }
+    final Map<String, Object> params = {
+      ...activity.toEventParams(),
+      'subject': subjectKey(activity.subject),
+      'minutes': activity.minutes,
+    };
     if (OfflineRuntime.current != null) {
       await ApiClient().request(
         'POST',
         'plans',
-        body: {
-          ...activity.toEventParams(),
-          'minutes': activity.minutes,
-          'date': dateKey(date),
-        },
+        body: {...params, 'date': dateKey(date)},
       );
       return;
     }
@@ -117,7 +130,6 @@ class ActivitiesRepository {
     final event = _firestore
         .collection('events')
         .doc('flutter_activity_${activity.id}');
-    final params = activity.toEventParams();
     await _firestore.runTransaction((transaction) async {
       final existing = await transaction.get(action);
       if (existing.exists) {
@@ -126,7 +138,6 @@ class ActivitiesRepository {
       transaction.set(action, {
         ...params,
         'kind': 'flutter_activity',
-        'minutes': activity.minutes,
         'date': dateKey(date),
         'platform': 'flutter',
         'createdAt': FieldValue.serverTimestamp(),

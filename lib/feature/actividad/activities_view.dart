@@ -7,6 +7,7 @@ import 'package:front_end_flutter/domain/model/activity.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
 import 'package:front_end_flutter/feature/actividad/activities_viewmodel.dart';
 import 'package:front_end_flutter/ui/components/section_label.dart';
+import 'package:front_end_flutter/ui/components/enad_panel.dart';
 part 'activities_view_state.dart';
 part 'template_tile.dart';
 
