@@ -1,3 +1,4 @@
+# pubspec.yaml
 name: front_end_flutter
 description: "Aplicación móvil del portal docente ENAd."
 publish_to: 'none'

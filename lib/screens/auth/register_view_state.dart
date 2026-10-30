@@ -21,6 +21,10 @@ class _RegisterViewState extends State<RegisterView> {
   Future<void> _submit() async {
     final creada = await _viewModel.register();
 
+    if (creada) {
+      // Lets the phone offer to save the new password.
+      TextInput.finishAutofillContext();
+    }
     if (creada && mounted) {
       // Snackbar to inform the user that a welcome email was sent, if applicable.
       if (_viewModel.welcomeEmailSent) {
@@ -52,10 +56,13 @@ class _RegisterViewState extends State<RegisterView> {
             listenable: _viewModel,
             builder: (context, _) {
               final IconData passwordVisibilityIcon;
+              final String passwordVisibilityLabel;
               if (_viewModel.obscurePassword) {
                 passwordVisibilityIcon = Icons.visibility_outlined;
+                passwordVisibilityLabel = 'Mostrar contraseña';
               } else {
                 passwordVisibilityIcon = Icons.visibility_off_outlined;
+                passwordVisibilityLabel = 'Ocultar contraseña';
               }
               return ListView(
                 children: [
@@ -65,33 +72,57 @@ class _RegisterViewState extends State<RegisterView> {
                   ),
                   const SizedBox(height: 32),
 
-                  TextField(
-                    controller: _viewModel.nameController,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: appInputDecoration('Nombre completo'),
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextField(
-                    controller: _viewModel.emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                    decoration: appInputDecoration('Correo'),
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextField(
-                    controller: _viewModel.passwordController,
-                    obscureText: _viewModel.obscurePassword,
-                    decoration: appInputDecoration(
-                      'Contraseña',
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          passwordVisibilityIcon,
-                          color: AppTheme.softInk,
+                  AutofillGroup(
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _viewModel.nameController,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.name],
+                          onChanged: (_) {
+                            _viewModel.clearError();
+                          },
+                          decoration: appInputDecoration('Nombre completo'),
                         ),
-                        onPressed: _viewModel.toggleObscurePassword,
-                      ),
+                        const SizedBox(height: 16),
+
+                        TextField(
+                          controller: _viewModel.emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.email],
+                          autocorrect: false,
+                          onChanged: (_) {
+                            _viewModel.clearError();
+                          },
+                          decoration: appInputDecoration('Correo'),
+                        ),
+                        const SizedBox(height: 16),
+
+                        TextField(
+                          controller: _viewModel.passwordController,
+                          obscureText: _viewModel.obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.newPassword],
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          onChanged: (_) {
+                            _viewModel.clearError();
+                          },
+                          decoration: appInputDecoration(
+                            'Contraseña',
+                            suffixIcon: IconButton(
+                              tooltip: passwordVisibilityLabel,
+                              icon: Icon(
+                                passwordVisibilityIcon,
+                                color: AppTheme.softInk,
+                              ),
+                              onPressed: _viewModel.toggleObscurePassword,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 32),

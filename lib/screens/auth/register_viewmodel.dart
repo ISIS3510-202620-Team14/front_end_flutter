@@ -3,6 +3,7 @@ import 'package:front_end_flutter/data/repository/schools_repository.dart';
 import 'package:front_end_flutter/ui/state/safe_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/data/auth/auth_api.dart';
+import 'package:front_end_flutter/data/auth/credential_rules.dart';
 
 class RegisterViewModel extends SafeNotifier {
   RegisterViewModel({SchoolsRepository? schools})
@@ -23,7 +24,7 @@ class RegisterViewModel extends SafeNotifier {
     try {
       schools = await _schoolsRepository.load();
     } catch (_) {
-      schoolsError = 'No pudimos cargar las instituciones.';
+      schoolsError = 'No pudimos cargar las instituciones. Revisa tu internet.';
     } finally {
       loadingSchools = false;
       notifyListeners();
@@ -36,6 +37,7 @@ class RegisterViewModel extends SafeNotifier {
     } else {
       selectedSchools.remove(id);
     }
+    error = null;
     notifyListeners();
   }
 
@@ -45,13 +47,13 @@ class RegisterViewModel extends SafeNotifier {
     } else {
       selectedSchools[schoolId]?.remove(campusId);
     }
+    error = null;
     notifyListeners();
   }
 
   bool obscurePassword = true;
   bool isLoading = false;
   String? error;
-  bool _disposed = false;
 
   /** The bool represents whether the backend managed to send the welcome email after registration. */
   bool welcomeEmailSent = false;
@@ -61,21 +63,36 @@ class RegisterViewModel extends SafeNotifier {
     notifyListeners();
   }
 
+  /** Hides the last error as soon as the teacher starts fixing the form. */
+  void clearError() {
+    if (error == null) {
+      return;
+    }
+    error = null;
+    notifyListeners();
+  }
+
   Future<bool> register() async {
     if (isLoading) {
       return false;
     }
     final email = emailController.text.trim();
     if (nameController.text.trim().isEmpty ||
-        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email) ||
-        passwordController.text.length < 6) {
-      error = 'Escribe tu nombre, un correo válido y una contraseña de al menos 6 caracteres.';
+        !CredentialRules.isValidEmail(email) ||
+        passwordController.text.length < CredentialRules.minPasswordLength) {
+      error =
+          'Escribe tu nombre, un correo válido y una contraseña de al menos ${CredentialRules.minPasswordLength} caracteres.';
       notifyListeners();
       return false;
     }
 
-    if (selectedSchools.isEmpty || selectedSchools.length > 10) {
-      error = 'Selecciona entre una y diez instituciones.';
+    if (selectedSchools.isEmpty) {
+      error = 'Elige al menos una institución.';
+      notifyListeners();
+      return false;
+    }
+    if (selectedSchools.length > 10) {
+      error = 'Elige máximo 10 instituciones.';
       notifyListeners();
       return false;
     }
@@ -84,7 +101,7 @@ class RegisterViewModel extends SafeNotifier {
       if (selected != null &&
           (school['campuses'] as List? ?? []).isNotEmpty &&
           selected.isEmpty) {
-        error = 'Selecciona una sede por institución.';
+        error = 'Elige al menos una sede de ${school['name']}.';
         notifyListeners();
         return false;
       }
@@ -97,7 +114,7 @@ class RegisterViewModel extends SafeNotifier {
     try {
       welcomeEmailSent = await AuthApi.register(
         nameController.text.trim(),
-        emailController.text.trim(),
+        email,
         passwordController.text,
         schools: [
           for (final entry in selectedSchools.entries)
@@ -111,16 +128,13 @@ class RegisterViewModel extends SafeNotifier {
       error = 'No pudimos completar la operación. Intenta de nuevo.';
     } finally {
       isLoading = false;
-      if (!_disposed) {
-        notifyListeners();
-      }
+      notifyListeners();
     }
     return false;
   }
 
   @override
   void dispose() {
-    _disposed = true;
     _schoolsRepository.dispose();
     nameController.dispose();
     emailController.dispose();

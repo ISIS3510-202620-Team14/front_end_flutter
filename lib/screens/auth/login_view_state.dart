@@ -1,3 +1,4 @@
+// lib/screens/auth/login_view_state.dart
 part of 'login_view.dart';
 
 class _LoginViewState extends State<LoginView> {
@@ -19,6 +20,14 @@ class _LoginViewState extends State<LoginView> {
     );
   }
 
+  /** Logs in and, when it worked, lets the phone offer to save the password. */
+  Future<void> _submit() async {
+    final opened = await _viewModel.login();
+    if (opened) {
+      TextInput.finishAutofillContext();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -30,10 +39,13 @@ class _LoginViewState extends State<LoginView> {
             listenable: _viewModel,
             builder: (context, _) {
               final IconData passwordVisibilityIcon;
+              final String passwordVisibilityLabel;
               if (_viewModel.obscurePassword) {
                 passwordVisibilityIcon = Icons.visibility_outlined;
+                passwordVisibilityLabel = 'Mostrar contraseña';
               } else {
                 passwordVisibilityIcon = Icons.visibility_off_outlined;
+                passwordVisibilityLabel = 'Ocultar contraseña';
               }
               return ListView(
                 children: [
@@ -51,30 +63,52 @@ class _LoginViewState extends State<LoginView> {
                   ),
                   const SizedBox(height: 40),
 
-                  TextField(
-                    controller: _viewModel.emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                    decoration: appInputDecoration(
-                      'Usuario (correo)',
-                      floatingLabel: false,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextField(
-                    controller: _viewModel.passwordController,
-                    obscureText: _viewModel.obscurePassword,
-                    decoration: appInputDecoration(
-                      'Contraseña',
-                      floatingLabel: false,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          passwordVisibilityIcon,
-                          color: AppTheme.softInk,
+                  AutofillGroup(
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _viewModel.emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.username],
+                          autocorrect: false,
+                          onChanged: (_) {
+                            _viewModel.clearError();
+                          },
+                          decoration: appInputDecoration(
+                            'Usuario (correo)',
+                            floatingLabel: false,
+                          ),
                         ),
-                        onPressed: _viewModel.toggleObscurePassword,
-                      ),
+                        const SizedBox(height: 16),
+
+                        TextField(
+                          controller: _viewModel.passwordController,
+                          obscureText: _viewModel.obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.password],
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          onChanged: (_) {
+                            _viewModel.clearError();
+                          },
+                          onSubmitted: (_) {
+                            _submit();
+                          },
+                          decoration: appInputDecoration(
+                            'Contraseña',
+                            floatingLabel: false,
+                            suffixIcon: IconButton(
+                              tooltip: passwordVisibilityLabel,
+                              icon: Icon(
+                                passwordVisibilityIcon,
+                                color: AppTheme.softInk,
+                              ),
+                              onPressed: _viewModel.toggleObscurePassword,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -88,7 +122,7 @@ class _LoginViewState extends State<LoginView> {
                   ],
 
                   LoginButton(
-                    onPressed: _viewModel.login,
+                    onPressed: _submit,
                     isLoading: _viewModel.isLoading,
                   ),
                   const SizedBox(height: 16),
