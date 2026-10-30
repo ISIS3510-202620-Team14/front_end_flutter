@@ -198,6 +198,50 @@ class ReportsRepository {
     );
   }
 
+  /** Rows read by the scanner by light, movement, torch and capture (BQ #10, last 8 weeks). */
+  Future<Map<String, dynamic>> scanQuality({bool force = false}) {
+    return cache.getOrLoad<Map<String, dynamic>>('escaneo', () async {
+      final Map<String, dynamic> result = await _api.request(
+        'GET',
+        'analytics/scan-quality',
+      );
+      if (result['pages'] is! num ||
+          result['ready'] is! List ||
+          result['autoCapture'] is! Map) {
+        throw const ApiException(502, 'El reporte recibido está incompleto.');
+      }
+      return result;
+    }, force: force);
+  }
+
+  /** What teachers correct in the scanned rows before importing (last 8 weeks). */
+  Future<Map<String, dynamic>> scanReview({bool force = false}) {
+    return cache.getOrLoad<Map<String, dynamic>>('revision', () async {
+      final Map<String, dynamic> result = await _api.request(
+        'GET',
+        'analytics/scan-review',
+      );
+      if (result['imports'] is! num || result['bySource'] is! List) {
+        throw const ApiException(502, 'El reporte recibido está incompleto.');
+      }
+      return result;
+    }, force: force);
+  }
+
+  /** Where teachers leave each Help guide and which optional steps they skip. */
+  Future<Map<String, dynamic>> tutorialSteps({bool force = false}) {
+    return cache.getOrLoad<Map<String, dynamic>>('guias', () async {
+      final Map<String, dynamic> result = await _api.request(
+        'GET',
+        'tutorials/report',
+      );
+      if (result['tutorials'] is! List) {
+        throw const ApiException(502, 'El reporte recibido está incompleto.');
+      }
+      return result;
+    }, force: force);
+  }
+
   /** Throws before caching, so an incomplete answer is never stored. */
   void _requireCompleteConflicts(Map<String, dynamic> result) {
     if (result['total'] is! num ||
