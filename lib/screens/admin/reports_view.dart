@@ -1,15 +1,29 @@
 // lib/screens/admin/reports_view.dart
 import 'package:flutter/material.dart';
+import 'package:front_end_flutter/screens/admin/assessments_report.dart';
 import 'package:front_end_flutter/screens/admin/attendance_conflicts_report.dart';
 import 'package:front_end_flutter/screens/admin/classification_report.dart';
 import 'package:front_end_flutter/screens/admin/grouping_sync_report.dart';
-import 'package:front_end_flutter/screens/admin/pending_section.dart';
+import 'package:front_end_flutter/screens/admin/hours_report.dart';
 import 'package:front_end_flutter/screens/admin/top_activities_report.dart';
 import 'package:front_end_flutter/screens/admin/weekly_opens_report.dart';
 
+/** Position of each report chip; the summary uses it to open a report. */
+class ReportIndex {
+  static const weeklyOpens = 0;
+  static const groupingSync = 1;
+  static const classification = 2;
+  static const hours = 3;
+  static const activities = 4;
+  static const conflicts = 5;
+  static const assessments = 6;
+}
+
 /** Reports tab of the admin portal, one chip per report like the Kotlin portal. */
 class ReportsView extends StatefulWidget {
-  const ReportsView({super.key});
+  /** [initial] is the chip that opens first. */
+  const ReportsView({super.key, this.initial = ReportIndex.weeklyOpens});
+  final int initial;
 
   @override
   State<ReportsView> createState() {
@@ -25,20 +39,23 @@ class _ReportsViewState extends State<ReportsView> {
     'Horas',
     'Actividades',
     'Conflictos',
+    'Evaluaciones',
   ];
-  int _selected = 0;
+  late int _selected = widget.initial;
 
   Widget _section() {
     switch (_selected) {
-      case 0:
+      case ReportIndex.weeklyOpens:
         return const WeeklyOpensReport();
-      case 1:
+      case ReportIndex.groupingSync:
         return const GroupingSyncReport();
-      case 2:
+      case ReportIndex.classification:
         return const ClassificationReport();
-      case 4:
+      case ReportIndex.hours:
+        return const HoursReport();
+      case ReportIndex.activities:
         return const TopActivitiesReport();
-      case 5:
+      case ReportIndex.conflicts:
         return OutlinedButton.icon(
           onPressed: () {
             Navigator.of(context).push(
@@ -53,7 +70,7 @@ class _ReportsViewState extends State<ReportsView> {
           label: const Text('Conflictos de asistencia'),
         );
       default:
-        return PendingSection(title: _titles[_selected]);
+        return const AssessmentsReport();
     }
   }
 
@@ -74,7 +91,7 @@ class _ReportsViewState extends State<ReportsView> {
           ],
         ),
         const SizedBox(height: 16),
-        // El cache en memoria evita volver a pedir el reporte al cambiar de chip.
+        // The cache en memory prevents asking again for the report when the chip is changed.
         _section(),
       ],
     );
