@@ -1,3 +1,6 @@
+// lib/screens/auth/session_viewmodel.dart
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:front_end_flutter/data/sync/offline_runtime.dart';
 import 'package:front_end_flutter/data/auth/auth_api.dart';
@@ -42,20 +45,36 @@ class SessionViewModel extends SafeNotifier {
         await OfflineRuntime.open(uid);
       }
       if (!isCurrent()) return;
-      var loaded = await _profiles.load();
-      if (!isCurrent()) return;
-      if (loaded.role != 'docente') {
-        profile = loaded;
-        return;
-      }
-      if (OfflineRuntime.current?.uid != uid) {
+
+      UserProfile loaded;
+      List<Map<String, dynamic>> available;
+      if (OfflineRuntime.current?.uid == uid) {
+        // The local data is already open: profile and institutions do not depend
+        // on each other, so they are read together instead of one after the other.
+        final both = await (_profiles.load(), _schools.load()).wait;
+        loaded = both.$1;
+        available = both.$2;
+        if (!isCurrent()) return;
+        if (loaded.role != 'docente') {
+          profile = loaded;
+          return;
+        }
+      } else {
+        loaded = await _profiles.load();
+        if (!isCurrent()) return;
+        if (loaded.role != 'docente') {
+          profile = loaded;
+          return;
+        }
         await OfflineRuntime.open(uid);
         if (!isCurrent()) return;
-        loaded = await _profiles.load();
+        // Once the local data is open, both reads come from it and can run together.
+        final both = await (_profiles.load(), _schools.load()).wait;
+        loaded = both.$1;
+        available = both.$2;
+        if (!isCurrent()) return;
       }
-      if (!isCurrent()) return;
-      final available = await _schools.load();
-      if (!isCurrent()) return;
+
       schools = available.where((school) {
         return loaded.schoolIds.contains(school['id']);
       }).toList();
