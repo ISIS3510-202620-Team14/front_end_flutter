@@ -27,6 +27,17 @@ class AppOpensRepository {
     return _store.countInWeek(AppDate.mondayOfWeek(now ?? DateTime.now()));
   }
 
+  /** Opens per complete week before the current one, oldest first, read from the phone. */
+  Future<List<int>> completedWeeksOpens(int weeks, [DateTime? now]) async {
+    final DateTime moment = now ?? DateTime.now();
+    return [
+      for (int back = weeks; back >= 1; back--)
+        await _store.countInWeek(
+          AppDate.mondayOfWeek(moment.subtract(Duration(days: 7 * back))),
+        ),
+    ];
+  }
+
   Future<int> pendingCount() async {
     return (await _store.pending()).length;
   }
@@ -72,9 +83,7 @@ class AppOpensRepository {
         }
         // Un rechazo definitivo (400, 409) no mejora al reintentar: se descarta.
       }
-      await _store.markSent({
-        for (final AppOpen open in batch) open.clientId,
-      });
+      await _store.markSent({for (final AppOpen open in batch) open.clientId});
     }
   }
 

@@ -8,6 +8,7 @@ import 'package:front_end_flutter/domain/model/quick_action.dart';
 import 'package:front_end_flutter/feature/actividad/activities_view.dart';
 import 'package:front_end_flutter/screens/teacher/home/weekly_opens_viewmodel.dart';
 import 'package:front_end_flutter/ui/components/weekly_opens_card.dart';
+import 'package:front_end_flutter/ui/components/reengagement_card.dart';
 import 'package:front_end_flutter/domain/model/day_moment.dart';
 import 'package:front_end_flutter/screens/teacher/home/day_context_viewmodel.dart';
 import 'package:front_end_flutter/ui/components/day_moment_card.dart';
@@ -109,6 +110,12 @@ class HoyView extends StatelessWidget {
               SessionContextCard(viewModel: dayContext),
               const SizedBox(height: 16),
             ],
+            // Type 5 BQ: only appears when the weekly opens dropped.
+            if (opensViewModel != null)
+              ReengagementCard(
+                viewModel: opensViewModel!,
+                onAttendance: onStudents,
+              ),
             if (opensViewModel != null) ...[
               WeeklyOpensCard(viewModel: opensViewModel!),
               const SizedBox(height: 16),
