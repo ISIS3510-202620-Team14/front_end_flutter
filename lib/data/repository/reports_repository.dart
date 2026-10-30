@@ -6,7 +6,7 @@ import 'package:front_end_flutter/data/remote/api_client.dart';
 class ReportsRepository {
   ReportsRepository(this._api);
   final ApiClient _api;
-  // Los reportes son consultas pesadas y el administrador cambia de semana y pestaña seguido.
+  // The cache for storing admin reports.
   static final MemoryCache cache = MemoryCache(name: 'reportes');
 
   /** Empties the cache; it runs on login and logout so one account never sees another's reports. */
@@ -31,7 +31,7 @@ class ReportsRepository {
         return result;
       },
       force: force,
-      // La semana en curso todavía cambia: vence. Una semana cerrada ya no.
+      // The current week is still changing: expires. A closed week no longer does.
       expires: (Map<String, dynamic> result) {
         return result['provisional'] != false;
       },
@@ -75,7 +75,7 @@ class ReportsRepository {
         return result;
       },
       force: force,
-      // Mientras haya una semana abierta los números todavía pueden cambiar.
+      // A current week causes that the numbers might still change.
       expires: (Map<String, dynamic> result) {
         return (result['weeks'] as List).any((week) {
           return week is Map && week['provisional'] != false;
@@ -118,6 +118,84 @@ class ReportsRepository {
       }
       return result;
     }, force: force);
+  }
+
+  /** Planned and worked hours per week, newest week first (last 8 weeks). */
+  Future<Map<String, dynamic>> hours({bool force = false}) {
+    return cache.getOrLoad<Map<String, dynamic>>('horas', () async {
+      final Map<String, dynamic> result = await _api.request(
+        'GET',
+        'workedHours/report',
+        query: {'weeks': '8'},
+      );
+      if (result['summary'] is! List) {
+        throw const ApiException(502, 'El reporte recibido está incompleto.');
+      }
+      final List<Object?> summary = [...result['summary'] as List];
+      summary.sort((a, b) {
+        return '${b is Map ? b['week'] : ''}'.compareTo(
+          '${a is Map ? a['week'] : ''}',
+        );
+      });
+      return {...result, 'summary': summary};
+    }, force: force);
+  }
+
+  /** Assessments per subject, overall and by grade (BQ #12). */
+  Future<Map<String, dynamic>> assessmentsByGrade({bool force = false}) {
+    return cache.getOrLoad<Map<String, dynamic>>('evaluaciones', () async {
+      final Map<String, dynamic> result = await _api.request(
+        'GET',
+        'analytics/assessments-by-grade',
+      );
+      if (result['total'] is! num ||
+          result['overall'] is! Map ||
+          result['grades'] is! List) {
+        throw const ApiException(502, 'El reporte recibido está incompleto.');
+      }
+      return result;
+    }, force: force);
+  }
+
+  /** Every active school for an administrator; [search] filters by name or municipality. */
+  Future<Map<String, dynamic>> schools(String search, {bool force = false}) {
+    final String text = search.trim();
+    return cache.getOrLoad<Map<String, dynamic>>(
+      'instituciones:$text',
+      () async {
+        final Map<String, dynamic> result = await _api.request(
+          'GET',
+          'schools',
+          query: {if (text.isNotEmpty) 'q': text},
+        );
+        if (result['schools'] is! List) {
+          throw const ApiException(502, 'El reporte recibido está incompleto.');
+        }
+        return result;
+      },
+      force: force,
+    );
+  }
+
+  /** Teachers registered in one school. */
+  Future<Map<String, dynamic>> teachersOfSchool(
+    String schoolId, {
+    bool force = false,
+  }) {
+    return cache.getOrLoad<Map<String, dynamic>>(
+      'docentes:$schoolId',
+      () async {
+        final Map<String, dynamic> result = await _api.request(
+          'GET',
+          'teachers/school/${Uri.encodeComponent(schoolId)}',
+        );
+        if (result['teachers'] is! List) {
+          throw const ApiException(502, 'El reporte recibido está incompleto.');
+        }
+        return result;
+      },
+      force: force,
+    );
   }
 
   /** Throws before caching, so an incomplete answer is never stored. */

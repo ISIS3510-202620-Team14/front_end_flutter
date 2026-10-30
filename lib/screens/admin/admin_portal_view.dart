@@ -1,6 +1,8 @@
+// lib/screens/admin/admin_portal_view.dart
 import 'package:flutter/material.dart';
-import 'package:front_end_flutter/screens/admin/pending_section.dart';
+import 'package:front_end_flutter/screens/admin/institutions_view.dart';
 import 'package:front_end_flutter/screens/admin/reports_view.dart';
+import 'package:front_end_flutter/screens/admin/summary_view.dart';
 
 /** Admin portal with the same three tabs as the Kotlin app. */
 class AdminPortalView extends StatefulWidget {
@@ -15,14 +17,31 @@ class AdminPortalView extends StatefulWidget {
 
 class _AdminPortalViewState extends State<AdminPortalView> {
   static const _titles = ['Resumen', 'Instituciones', 'Reportes'];
-  int _tab = 2;
+  int _tab = 0;
+  int _report = ReportIndex.weeklyOpens;
+  // Each time that the summary opens a report, the reports view is recreated in that chip.
+  int _opened = 0;
+
+  void _openReport(int report) {
+    setState(() {
+      _report = report;
+      _opened++;
+      _tab = 2;
+    });
+  }
 
   Widget _body() {
-    if (_tab == 2) return const ReportsView();
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [PendingSection(title: _titles[_tab])],
-    );
+    switch (_tab) {
+      case 0:
+        return SummaryView(
+          onOpenReport: _openReport,
+          onOpenInstitutions: () => setState(() => _tab = 1),
+        );
+      case 1:
+        return const InstitutionsView();
+      default:
+        return ReportsView(key: ValueKey(_opened), initial: _report);
+    }
   }
 
   @override
