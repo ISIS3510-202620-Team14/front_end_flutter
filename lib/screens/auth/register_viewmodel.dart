@@ -55,8 +55,17 @@ class RegisterViewModel extends SafeNotifier {
   bool isLoading = false;
   String? error;
 
-  /** The bool represents whether the backend managed to send the welcome email after registration. */
+  /** Whether the email provider accepted the welcome request. */
   bool welcomeEmailSent = false;
+
+  // # samuel charry contribution: F29 reports provider acceptance, not delivery.
+  /** Keeps welcome email status separate from successful account creation. */
+  String get welcomeMessage {
+    if (welcomeEmailSent) {
+      return 'Cuenta creada. El servicio de correo aceptó el envío de tu bienvenida.';
+    }
+    return 'Cuenta creada. No pudimos confirmar el envío del correo de bienvenida. Puedes usar la app.';
+  }
 
   void toggleObscurePassword() {
     obscurePassword = !obscurePassword;

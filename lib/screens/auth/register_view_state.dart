@@ -18,6 +18,7 @@ class _RegisterViewState extends State<RegisterView> {
     super.dispose();
   }
 
+  /** Shows registration and email outcomes without requesting another signup. */
   Future<void> _submit() async {
     final creada = await _viewModel.register();
 
@@ -26,16 +27,8 @@ class _RegisterViewState extends State<RegisterView> {
       TextInput.finishAutofillContext();
     }
     if (creada && mounted) {
-      // Snackbar to inform the user that a welcome email was sent, if applicable.
-      if (_viewModel.welcomeEmailSent) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Te enviamos un correo de bienvenida a ${_viewModel.emailController.text.trim()}.',
-            ),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_viewModel.welcomeMessage)));
       Navigator.of(context).pop();
     }
   }
