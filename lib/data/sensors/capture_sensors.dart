@@ -29,6 +29,8 @@ class CaptureSensors {
   final _detector = StillnessDetector();
   double? _lux;
   bool? _stable;
+  // Last reading sent, so the camera only repaints when something changed.
+  SensorReading? _sent;
   bool _closed = false;
   int _epoch = 0;
 
@@ -111,14 +113,23 @@ class CaptureSensors {
     _emit();
   }
 
-  /** Sends only live readings. */
+  /**
+   * Sends only live readings that changed, like distinctUntilChanged in the Kotlin sensors.
+   * The accelerometer fires about 60 times a second and most events leave the same values.
+   */
   void _emit() {
-    if (!_closed) _controller.add(SensorReading(_lux, _stable));
+    if (_closed) return;
+    final SensorReading? last = _sent;
+    if (last != null && last.lux == _lux && last.stable == _stable) return;
+    final SensorReading reading = SensorReading(_lux, _stable);
+    _sent = reading;
+    _controller.add(reading);
   }
 
   /** Invalidates late events and releases both subscriptions. */
   Future<void> _stop() async {
     _epoch++;
+    _sent = null;
     final light = _lightSub;
     final motion = _accelSub;
     _lightSub = null;

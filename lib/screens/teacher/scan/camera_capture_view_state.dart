@@ -180,14 +180,26 @@ class _CameraCaptureViewState extends State<CameraCaptureView>
     _scheduleAutoShot();
   }
 
+  /**
+   * Focuses and measures the light at the touched point, like startFocusAndMetering in Kotlin.
+   * Each one is tried on its own, so a phone that only supports focus still focuses.
+   */
   Future<void> _focusAt(Offset point) async {
     final controller = _controller;
     if (controller == null) return;
-    try {
-      await controller.setExposurePoint(point);
-      await controller.setFocusPoint(point);
-    } catch (_) {
-      // Not all phones allow choosing the focus point.
+    if (controller.value.exposurePointSupported) {
+      try {
+        await controller.setExposurePoint(point);
+      } catch (_) {
+        // The phone reported support but rejected the point: focus can still work.
+      }
+    }
+    if (controller.value.focusPointSupported) {
+      try {
+        await controller.setFocusPoint(point);
+      } catch (_) {
+        // Not all phones allow choosing the focus point.
+      }
     }
   }
 
