@@ -1,4 +1,6 @@
+// lib/data/repository/students_repository.dart
 import '../sync/offline_runtime.dart';
+import '../cache/progress_cache.dart';
 
 import 'package:front_end_flutter/data/remote/api_client.dart';
 import 'package:front_end_flutter/domain/model/scanned_row.dart';
@@ -83,6 +85,8 @@ class StudentsRepository {
         'level': _adapter.levelLabelToBackend(subject, label),
       },
     );
+    // A new evaluation changes the progress, so the saved copy is no longer valid.
+    ProgressCache.clear();
     if (student.withdrawn) {
       await _update(student, {'retired': false});
     }
@@ -230,8 +234,14 @@ class StudentsRepository {
     return _adapter.toDomain(data, 0);
   }
 
-  Future<Map<String, dynamic>> progress(String id) {
-    return _api.request('GET', 'students/$id/progress');
+  /** Progress of one student; the same read is reused for 2 minutes unless force is true. */
+  Future<Map<String, dynamic>> progress(String id, {bool force = false}) {
+    final String uid = OfflineRuntime.current?.uid ?? 'sin-sesion';
+    return ProgressCache.cache.getOrLoad<Map<String, dynamic>>(
+      '$uid:$id',
+      () => _api.request('GET', 'students/$id/progress'),
+      force: force,
+    );
   }
 
   void dispose() {

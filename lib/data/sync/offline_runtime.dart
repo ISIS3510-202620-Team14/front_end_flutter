@@ -1,3 +1,4 @@
+// lib/data/sync/offline_runtime.dart
 import '../auth/auth_api.dart';
 
 import 'dart:async';
@@ -15,8 +16,9 @@ import '../local/offline_database.dart';
 import 'offline_projection.dart';
 import 'background_sync.dart';
 import '../repository/attendance_conflicts.dart';
+import '../cache/progress_cache.dart';
 
-// # eventual connectivity: durable outbox, retry and account isolation; Kotlin mirror: Santiago Quiroz.
+// Eventual connectivity Strategy: durable outbox, retry and account isolation; Kotlin mirror: Santiago Quiroz.
 /** Coordinates local changes and server receipts. */
 class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
   /** Creates a foreground or background coordinator. */
@@ -311,12 +313,18 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
   /** Updates visible sync counts. */
   Future<void> refreshCounts() async {
     final history = await db.history(uid);
-    pending = history.where((op) {
+    final int newPending = history.where((op) {
       return ['pending', 'sending', 'blocked'].contains(op['state']);
     }).length;
-    attention = history.where((op) {
+    final int newAttention = history.where((op) {
       return ['conflict', 'failed'].contains(op['state']);
     }).length;
+    // This runs every 2 seconds: the saved progress is dropped only when something really changed.
+    if (newPending != pending || newAttention != attention) {
+      ProgressCache.clear();
+    }
+    pending = newPending;
+    attention = newAttention;
     notifyListeners();
   }
 
@@ -407,6 +415,7 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
         await db.setMeta(uid, 'downloadedAt', at);
       });
       downloadedAt = at;
+      ProgressCache.clear();
       ready = true;
       message = null;
     } catch (error) {
