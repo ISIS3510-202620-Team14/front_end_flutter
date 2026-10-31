@@ -327,6 +327,9 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
+  /** Student records downloaded at the same time during the first download. */
+  static const int downloadWorkers = 6;
+
   /** Replaces the cache only after a complete download. */
   Future<void> _downloadAll() async {
     if (!ownsSession) return;
@@ -373,11 +376,23 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
         return (r['key'] as String).startsWith('students/') &&
             r['data']?['active'] != false;
       }).toList();
-      for (final student in students) {
-        final id = (student['key'] as String).split('/').last;
-        await page('attendance', {'parentId': id});
-        await page('evaluations', {'parentId': id});
+      // # juan triviño contribution: F28 the first login waited for two requests per student,
+      // one after the other. A few workers now share the list, so the session opens much faster
+      // and the backend never gets more than [downloadWorkers] requests at once.
+      int next = 0;
+      Future<void> worker() async {
+        while (next < students.length) {
+          final student = students[next++];
+          final id = (student['key'] as String).split('/').last;
+          await page('attendance', {'parentId': id});
+          await page('evaluations', {'parentId': id});
+        }
       }
+
+      await Future.wait([
+        for (int i = 0; i < downloadWorkers && i < students.length; i++)
+          worker(),
+      ]);
       await page('activities');
       await page('hours');
       await page('plans');
