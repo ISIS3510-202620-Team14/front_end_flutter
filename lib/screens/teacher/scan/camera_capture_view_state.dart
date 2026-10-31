@@ -94,9 +94,14 @@ class _CameraCaptureViewState extends State<CameraCaptureView>
       await _sensorSub?.cancel();
       _sensorSub = _sensors.readings.listen((reading) {
         if (!mounted) return;
-        setState(() {
-          _reading = reading;
-        });
+        // # multithreading: only the latest reading is kept, like conflate in Kotlin's SensoresCaptura.
+        // The screen only shows the light level and whether the phone is steady, so it repaints
+        // when one of those two changes and not on every sensor event (about 15 per second).
+        final bool changed =
+            LightLevel.of(reading.lux) != _lightLevel ||
+            reading.stable != _reading.stable;
+        _reading = reading;
+        if (changed) setState(() {});
         _maybeAutoTorch();
         _scheduleAutoShot();
       });
