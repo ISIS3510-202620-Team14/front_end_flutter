@@ -1,5 +1,7 @@
+// lib/ui/components/sync_panel.dart
 import 'dart:convert';
 
+import 'package:front_end_flutter/domain/model/saved_data.dart';
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/data/sync/offline_runtime.dart';
 
@@ -128,7 +130,7 @@ class SyncPanel extends StatelessWidget {
             Text(title),
             if (runtime.downloadedAt != null)
               Text(
-                'Última descarga: ${DateTime.parse(runtime.downloadedAt!).toLocal()}',
+                'Última descarga: ${SavedData.when(DateTime.parse(runtime.downloadedAt!))}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             if (runtime.message != null) Text(runtime.message!),
