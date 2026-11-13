@@ -190,55 +190,105 @@ class StudentListScanner {
     if (words.isEmpty) return [];
     final heights = words.map((w) => w.bottom - w.top).toList()..sort();
     final tolerance = heights[heights.length ~/ 2] * .65;
+    // Column titles provide a baseline even when the photograph is tilted.
+    final gradeTitles = words.where((w) => _column(w.text) == 'grade');
+    final nameTitles = words.where((w) => _column(w.text) == 'name');
+    var slope = 0.0;
+    baseline:
+    for (final grade in gradeTitles) {
+      for (final name in nameTitles) {
+        final dx = grade.left - name.left;
+        if (dx.abs() < tolerance * 4) continue;
+        final candidate =
+            (grade.top + grade.bottom - name.top - name.bottom) / (2 * dx);
+        if (candidate.abs() <= .18) {
+          slope = candidate;
+          break baseline;
+        }
+      }
+    }
+    double level(({String text, double left, double top, double bottom}) word) {
+      return (word.top + word.bottom) / 2 - slope * word.left;
+    }
+
+    words.sort((a, b) => level(a).compareTo(level(b)));
     final lines =
         <List<({String text, double left, double top, double bottom})>>[];
     var center = double.negativeInfinity;
-    for (final w in words) {
-      final y = (w.top + w.bottom) / 2;
+    for (final word in words) {
+      final y = level(word);
       if (y - center > tolerance) {
         lines.add([]);
         center = y;
       }
-      lines.last.add(w);
+      lines.last.add(word);
     }
-    const header = ['codigo', 'estudiante', 'grado', 'edad', 'sexo'];
-    List<double>? anchors;
+    var columns = <({String key, double left})>[];
     final result = <ScannedRow>[];
     for (final line in lines) {
       line.sort((a, b) => a.left.compareTo(b.left));
-      final labels = line
-          .map((w) => w.text.trim().toLowerCase().replaceAll('ó', 'o'))
-          .toList();
-      final indices = header.map(labels.indexOf).toList();
-      if (indices.every((i) => i >= 0) &&
-          List.generate(
-            4,
-            (i) => indices[i] < indices[i + 1],
-          ).every((ok) => ok)) {
-        anchors = indices.map((i) => line[i].left).toList();
+      final titles = <String, double>{};
+      for (final word in line) {
+        final key = _column(word.text);
+        if (key != null) titles.putIfAbsent(key, () => word.left);
+      }
+      // A damaged code heading can split into "C" and digits. Accept it only
+      // between the name and grade headings, above two aligned student codes.
+      if (titles.containsKey('name') &&
+          titles.containsKey('grade') &&
+          !titles.containsKey('code')) {
+        for (final w in line) {
+          if (!w.text.toLowerCase().startsWith('c') ||
+              w.left <= titles['name']! ||
+              w.left >= titles['grade']!)
+            continue;
+          final aligned = words.where(
+            (item) =>
+                item.top > w.bottom &&
+                (item.left - w.left).abs() < tolerance * 2 &&
+                _code.hasMatch(item.text) &&
+                item.text.length >= 4,
+          );
+          if (aligned.take(2).length == 2) {
+            titles['code'] = w.left;
+            break;
+          }
+        }
+      }
+      if (titles.containsKey('name') &&
+          titles.containsKey('grade') &&
+          titles.containsKey('code')) {
+        columns = [for (final t in titles.entries) (key: t.key, left: t.value)]
+          ..sort((a, b) => a.left.compareTo(b.left));
         continue;
       }
-      if (anchors == null) continue;
-      if (labels.contains('fin') && labels.contains('lista')) {
-        anchors = null;
+      if (columns.isEmpty) continue;
+      if (line
+          .map((w) => w.text.toLowerCase())
+          .join(' ')
+          .contains('fin de lista')) {
+        columns.clear();
         continue;
       }
-      final cells = List.generate(5, (_) => <String>[]);
+      final cells = <String, List<String>>{};
       final margin = heights[heights.length ~/ 2] * .8;
       for (final word in line) {
-        if (word.left < anchors.first - margin ||
-            word.left > anchors.last + margin * 3) {
+        final index = columns.lastIndexWhere(
+          (column) => word.left >= column.left - margin,
+        );
+        if (index < 0 && (word.left - columns.first.left).abs() > margin * 4)
           continue;
-        }
-        final column = anchors.lastIndexWhere((x) => word.left >= x - margin);
-        if (column >= 0) cells[column].add(word.text.trim());
+        final column = columns[index < 0 ? 0 : index];
+        if (column.key == 'sex' && word.left > column.left + margin * 3)
+          continue;
+        cells.putIfAbsent(column.key, () => []).add(word.text.trim());
       }
-      final code = cells[0].join();
-      final names = cells[1].join(' ').split(_spaces);
-      final grade = int.tryParse(cells[2].join());
-      final ageText = cells[3].join();
+      final code = cells['code']?.join() ?? '';
+      final names = (cells['name']?.join(' ') ?? '').split(_spaces);
+      final grade = int.tryParse(cells['grade']?.join() ?? '');
+      final ageText = cells['age']?.join() ?? '';
       final age = int.tryParse(ageText);
-      final sex = cells[4].join().toUpperCase();
+      final sex = cells['sex']?.join().toUpperCase() ?? '';
       if ((code.isNotEmpty && !_code.hasMatch(code)) ||
           names.length < 2 ||
           !names.every(_person.hasMatch) ||
@@ -260,6 +310,25 @@ class StudentListScanner {
       );
     }
     return result;
+  }
+
+  /** Maps printed column headings to editable fields. */
+  static String? _column(String text) {
+    final label = text.trim().toLowerCase().replaceAll('ó', 'o');
+    return switch (label) {
+      'nombre' ||
+      'nombres' ||
+      'nombre y apellidos' ||
+      'apellido' ||
+      'apellidos' ||
+      'estudiante' => 'name',
+      'codigo' => 'code',
+      'grado' || 'graöo' || 'gra0o' => 'grade',
+      'edad' || 'ed•d' => 'age',
+      'sexo' => 'sex',
+      'asistencia' => 'attendance',
+      _ => null,
+    };
   }
 
   /** Uses the code, or a normalized name when no code exists. */

@@ -241,7 +241,7 @@ class _ScannerViewState extends State<ScannerView> {
         return _viewModel.error ?? '';
       case ScannerStatus.idle:
         return 'Fotografía la plantilla impresa de frente. Incluye la cabecera: '
-            'Código, Estudiante, Grado, Edad y Sexo. Revisa cada fila antes de importar.';
+            'nombre, código y grado. Edad y sexo son opcionales. Revisa cada fila antes de importar.';
     }
   }
 }
