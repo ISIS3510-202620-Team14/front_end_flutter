@@ -236,12 +236,12 @@ class _ScannerViewState extends State<ScannerView> {
             : 'Completa los códigos reales y revisa los nombres antes de importar. Toca uno para '
                   'corregirlo. Puedes escanear otra página.';
       case ScannerStatus.empty:
-        return 'No encontramos nombres. Toma la foto de frente, con buena luz.';
+        return 'No se reconocieron filas válidas. Incluye la cabecera completa y toma la foto de frente, con buena luz.';
       case ScannerStatus.error:
         return _viewModel.error ?? '';
       case ScannerStatus.idle:
-        return 'Toma una foto de la lista impresa o escrita a mano '
-            '(un estudiante por renglón: nombre y apellido).';
+        return 'Fotografía la plantilla impresa de frente. Incluye la cabecera: '
+            'Código, Estudiante, Grado, Edad y Sexo. Revisa cada fila antes de importar.';
     }
   }
 }

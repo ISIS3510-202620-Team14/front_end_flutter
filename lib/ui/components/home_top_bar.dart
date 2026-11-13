@@ -3,7 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
 
 class HomeTopBar extends StatelessWidget {
-  const HomeTopBar({super.key, required this.teacherName, this.onChangeUser});
+  const HomeTopBar({
+    super.key,
+    required this.teacherName,
+    this.onChangeUser,
+    this.portal = 'docente',
+  });
+  final String portal;
   final String teacherName;
   final VoidCallback? onChangeUser;
 
@@ -35,7 +41,7 @@ class HomeTopBar extends StatelessWidget {
                       ),
                       const SizedBox(width: 16),
                       Text(
-                        'Portal\ndocente',
+                        'Portal\n$portal',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(width: 10),

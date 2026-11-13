@@ -89,9 +89,11 @@ class ScannerOcr(private val context: Context, messenger: BinaryMessenger) : Met
                                         val lines = ArrayList<Map<String, Any>>()
                                         for (block in text.textBlocks) {
                                             for (line in block.lines) {
-                                                val box = line.boundingBox ?: continue
-                                                lines.add(mapOf("text" to line.text, "left" to box.left.toDouble(),
+                                                for (word in line.elements) {
+                                                val box = word.boundingBox ?: continue
+                                                lines.add(mapOf("text" to word.text, "left" to box.left.toDouble(),
                                                     "top" to box.top.toDouble(), "bottom" to box.bottom.toDouble()))
+                                                }
                                             }
                                         }
                                         Log.d("ScannerOcr", "${lines.size} rows in ${SystemClock.elapsedRealtime() - started} ms (${Thread.currentThread().name})")

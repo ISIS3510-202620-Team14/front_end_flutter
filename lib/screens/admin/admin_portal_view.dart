@@ -1,5 +1,7 @@
 // lib/screens/admin/admin_portal_view.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:front_end_flutter/ui/components/home_top_bar.dart';
 import 'package:front_end_flutter/screens/admin/institutions_view.dart';
 import 'package:front_end_flutter/screens/admin/reports_view.dart';
 import 'package:front_end_flutter/screens/admin/summary_view.dart';
@@ -47,17 +49,27 @@ class _AdminPortalViewState extends State<AdminPortalView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_titles[_tab]),
-        actions: [
-          IconButton(
-            onPressed: widget.onLogout,
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesión',
+      body: Column(
+        children: [
+          HomeTopBar(
+            teacherName:
+                FirebaseAuth.instance.currentUser?.email ?? 'Administrador',
+            portal: 'admin',
+            onChangeUser: widget.onLogout,
           ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Text(
+                _titles[_tab],
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+          ),
+          Expanded(child: _body()),
         ],
       ),
-      body: _body(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (index) => setState(() => _tab = index),

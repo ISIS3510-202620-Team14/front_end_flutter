@@ -218,7 +218,7 @@ class _SummaryViewState extends State<SummaryView> {
       );
     } else if (indicator.load.failed) {
       value = Text(
-        'Sin datos',
+        'No se pudo cargar',
         style: text.titleMedium?.copyWith(color: AppTheme.softInk),
       );
     } else {
@@ -259,7 +259,7 @@ class _SummaryViewState extends State<SummaryView> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: _tile(left)),
           const SizedBox(width: 12),
@@ -274,6 +274,8 @@ class _SummaryViewState extends State<SummaryView> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        const Text('Fundación ENAd'),
+        const SizedBox(height: 12),
         _row(_schoolsIndicator(), _opensIndicator()),
         _row(_hoursIndicator(), _activityIndicator()),
         _row(_conflictsIndicator(), _assessmentsIndicator()),
