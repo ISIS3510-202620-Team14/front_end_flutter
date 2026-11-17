@@ -14,6 +14,7 @@ class AttendanceMapRepository {
   final void Function(String message)? onLog;
 
   void _log(String message) {
+    if (kDebugMode) debugPrint('[mapa] $message');
     onLog?.call(message);
   }
 
@@ -59,10 +60,21 @@ class AttendanceMapRepository {
     final List<String> lastWeek = [
       for (int i = -7; i < -2; i++) _date(monday, i),
     ];
+    final String today = DateTime.now()
+        .toUtc()
+        .subtract(const Duration(hours: 5))
+        .toIso8601String()
+        .substring(0, 10);
+    final List<String> asked = [
+      ...lastWeek,
+      ...days.where((day) => day.compareTo(today) <= 0),
+    ];
     final List schools = (await _api.request('GET', 'schools'))['schools'];
     _log('GET schools → ${schools.length} instituciones');
     final Stopwatch watch = Stopwatch()..start();
-    _log('Future.wait: ${schools.length * 10} peticiones en paralelo');
+    _log(
+      'Future.wait: ${schools.length * asked.length} peticiones en paralelo',
+    );
 
     /* CONCURRENCY 
     
@@ -79,14 +91,16 @@ class AttendanceMapRepository {
     final List<Map<String, dynamic>> rows = await Future.wait([
       for (final school in schools)
         () async {
+          final List lists = await Future.wait([
+            for (final day in asked) _students(school['id'], day),
+          ]);
           return {
             'name': school['name'],
-            'thisWeek': await Future.wait([
-              for (final day in days) _students(school['id'], day),
-            ]),
-            'lastWeek': await Future.wait([
-              for (final day in lastWeek) _students(school['id'], day),
-            ]),
+            'lastWeek': lists.sublist(0, 5),
+            'thisWeek': [
+              ...lists.sublist(5),
+              for (int i = lists.length - 5; i < 5; i++) const [],
+            ],
           };
         }(),
     ]);
