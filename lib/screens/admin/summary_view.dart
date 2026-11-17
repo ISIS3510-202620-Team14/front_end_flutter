@@ -1,13 +1,15 @@
 // lib/screens/admin/summary_view.dart
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
+import 'package:front_end_flutter/data/repository/attendance_map_repository.dart';
 import 'package:front_end_flutter/data/repository/reports_repository.dart';
+import 'package:front_end_flutter/domain/model/attendance_map.dart';
+import 'package:front_end_flutter/screens/admin/attendance_map_view.dart';
 import 'package:front_end_flutter/screens/admin/report_format.dart';
 import 'package:front_end_flutter/screens/admin/reports_view.dart';
 import 'package:front_end_flutter/ui/components/enad_panel.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
 
-/** Answer of one request: still loading, failed, or the data. */
 class _Load {
   const _Load({this.loading = true, this.failed = false, this.data});
   final bool loading;
@@ -15,7 +17,6 @@ class _Load {
   final Map<String, dynamic>? data;
 }
 
-/** One indicator of the summary, ready to draw. */
 class _Indicator {
   const _Indicator({
     required this.label,
@@ -33,9 +34,8 @@ class _Indicator {
   final bool valueIsText;
 }
 
-/** Summary tab: one indicator per report; tapping it opens that report. */
+
 class SummaryView extends StatefulWidget {
-  /** Allows an injected repository for tests. */
   const SummaryView({
     super.key,
     required this.onOpenReport,
@@ -65,13 +65,17 @@ class _SummaryViewState extends State<SummaryView> {
     }
     _reports = widget.reports ?? ReportsRepository(_ownedApi!);
     final week = currentMonday();
-    // Each indicator fails independently: one without data doesn't crash the others.
     _fetch('schools', () => _reports.schools(''));
     _fetch('opens', () => _reports.weeklyOpens(week));
     _fetch('hours', () => _reports.hours());
     _fetch('activities', () => _reports.topActivities());
     _fetch('conflicts', () => _reports.attendanceConflicts(week));
     _fetch('assessments', () => _reports.assessmentsByGrade());
+    _ownedApi ??= ApiClient(localFirst: false);
+    _fetch('attendance', () async {
+      final result = await AttendanceMapRepository(_ownedApi!).load();
+      return {'map': result.map};
+    });
   }
 
   @override
@@ -108,6 +112,22 @@ class _SummaryViewState extends State<SummaryView> {
       return list.first as Map;
     }
     return null;
+  }
+
+  _Indicator _attendanceIndicator() {
+    final load = _load('attendance');
+    final map = load.data?['map'] as AttendanceMap?;
+    return _Indicator(
+      label: 'Asistencia de la semana',
+      load: load,
+      value: adminPercentage(map?.week),
+      detail: map == null ? '' : dropSentence(map),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const AttendanceMapView()),
+        );
+      },
+    );
   }
 
   _Indicator _schoolsIndicator() {
@@ -276,6 +296,10 @@ class _SummaryViewState extends State<SummaryView> {
       children: [
         const Text('Fundación ENAd'),
         const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _tile(_attendanceIndicator()),
+        ),
         _row(_schoolsIndicator(), _opensIndicator()),
         _row(_hoursIndicator(), _activityIndicator()),
         _row(_conflictsIndicator(), _assessmentsIndicator()),
