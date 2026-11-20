@@ -34,7 +34,6 @@ class _Indicator {
   final bool valueIsText;
 }
 
-
 class SummaryView extends StatefulWidget {
   const SummaryView({
     super.key,
@@ -73,7 +72,7 @@ class _SummaryViewState extends State<SummaryView> {
     _fetch('assessments', () => _reports.assessmentsByGrade());
     _ownedApi ??= ApiClient(localFirst: false);
     _fetch('attendance', () async {
-      final result = await AttendanceMapRepository(_ownedApi!).load();
+      final result = await AttendanceMapRepository(_ownedApi!).load().last;
       return {'map': result.map};
     });
   }

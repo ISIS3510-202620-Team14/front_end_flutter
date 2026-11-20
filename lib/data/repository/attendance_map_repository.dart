@@ -22,34 +22,53 @@ class AttendanceMapRepository {
     return 'attendance_map_${FirebaseAuth.instance.currentUser?.uid}';
   }
 
-  Future<({AttendanceMap map, String source})> load({
-    bool force = false,
-  }) async {
-    bool downloaded = false;
-    _log(force ? 'Recarga forzada: se salta la caché' : 'Buscando en caché');
+  static const String _cacheKey = 'attendance_map';
+
+  /* CACHING: Cache then network
+
+  1. Emits the cached map right away (RAM, or the copy saved on the phone).
+  2. Asks the network for the new map and emits it when it arrives.
+  If the network fails, the cached map stays, marked as offline.
+  */
+  Stream<({AttendanceMap map, String source})> load() async* {
+    final AttendanceMap? cached = await _cached();
+    if (cached != null) {
+      _log('Cache then network: mostrando la caché mientras llega la red');
+      yield (map: cached, source: 'cache');
+    } else {
+      _log('Cache then network: no hay caché, esperando la red');
+    }
     try {
-      final AttendanceMap map = await ReportsRepository.cache
-          .getOrLoad<AttendanceMap>('attendance_map', () {
-            downloaded = true;
-            _log('Caché en memoria: no está → descargando');
-            return _download();
-          }, force: force);
-      if (!downloaded) _log('Caché en memoria: ACIERTO, sin descargar');
-      return (map: map, source: downloaded ? 'red' : 'memoria');
+      final AttendanceMap fresh = await _download();
+      ReportsRepository.cache.put(_cacheKey, fresh, expires: false);
+      _log('Red respondió: la caché se actualizó');
+      yield (map: fresh, source: 'red');
     } catch (error) {
       final String reason = '$error';
       _log(
         'Falló la red: ${reason.length > 80 ? reason.substring(0, 80) : reason}',
       );
-      final preferences = await SharedPreferences.getInstance();
-      final String? saved = preferences.getString(_key);
-      if (saved == null) {
-        _log('SharedPreferences: no hay mapa guardado');
+      if (cached == null) {
+        _log('Sin caché ni copia guardada: no hay mapa que mostrar');
         rethrow;
       }
-      _log('SharedPreferences: mapa leído (${saved.length} bytes)');
-      return (map: AttendanceMap.fromJson(jsonDecode(saved)), source: 'disco');
+      yield (map: cached, source: 'disco');
     }
+  }
+
+  Future<AttendanceMap?> _cached() async {
+    final AttendanceMap? inMemory = ReportsRepository.cache.get<AttendanceMap>(
+      _cacheKey,
+    );
+    if (inMemory != null) {
+      _log('Caché en memoria (RAM): ACIERTO');
+      return inMemory;
+    }
+    final preferences = await SharedPreferences.getInstance();
+    final String? saved = preferences.getString(_key);
+    if (saved == null) return null;
+    _log('Copia guardada en el celular: ACIERTO (${saved.length} bytes)');
+    return AttendanceMap.fromJson(jsonDecode(saved));
   }
 
   Future<AttendanceMap> _download() async {
