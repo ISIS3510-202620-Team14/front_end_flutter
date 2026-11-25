@@ -10,4 +10,5 @@ class ReportIndex {
   static const scanQuality = 7;
   static const scanReview = 8;
   static const guides = 9;
+  static const teachersAtRisk = 10;
 }
