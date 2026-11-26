@@ -158,7 +158,9 @@ class _WeeklyOpensReportState extends State<WeeklyOpensReport> {
                           ),
                           Text(
                             teachers == 0
-                                ? 'Ningún docente abrió la app esta semana.'
+                                ? (isCurrent
+                                      ? 'Ningún docente ha abierto la app esta semana.'
+                                      : 'Ningún docente abrió la app esa semana.')
                                 : '$repeat de $teachers docentes',
                             style: text.bodyMedium,
                           ),

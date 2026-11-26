@@ -18,6 +18,9 @@ class DayContextViewModel extends SafeNotifier {
   // Day Moment card that is shown to the teacher.
   DaySummary? summary;
   DayMoment? moment;
+  // True while the chosen group is being saved, so a second tap does nothing.
+  bool saving = false;
+  String? error;
   bool _started = false;
   bool _refreshing = false;
 
@@ -27,14 +30,20 @@ class DayContextViewModel extends SafeNotifier {
     _started = true;
     loading = true;
     notifyListeners();
-    await repository.ensurePermission();
-    final String? schoolId = await repository.registerPresence();
-    confirmed = await repository.confirmedToday();
-    suggestion = confirmed == null ? await repository.suggest(schoolId) : null;
-    groups = await repository.groupsOfDay();
-    choosing = confirmed == null && suggestion == null && groups.isNotEmpty;
-    loading = false;
-    notifyListeners();
+    try {
+      await repository.ensurePermission();
+      final String? schoolId = await repository.registerPresence();
+      confirmed = await repository.confirmedToday();
+      suggestion = confirmed == null ? await repository.suggest(schoolId) : null;
+      groups = await repository.groupsOfDay();
+      choosing = confirmed == null && suggestion == null && groups.isNotEmpty;
+    } catch (_) {
+      // Without the context the teacher can still use Hoy; the card says it could not be read.
+      error = 'No pudimos leer tu ubicación ni tu horario. Puedes seguir usando la app.';
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
     await refreshMoment();
   }
 
@@ -63,26 +72,43 @@ class DayContextViewModel extends SafeNotifier {
 
   Future<void> acceptSuggestion() async {
     final GroupOfDay? group = suggestion;
-    if (group == null) return;
+    if (group == null || saving) return;
     await _confirm(group, ValueOrigin.suggested);
   }
 
   void change() {
     choosing = true;
+    error = null;
+    notifyListeners();
+  }
+
+  /** Closes the list of groups without choosing one. */
+  void cancelChoosing() {
+    choosing = false;
     notifyListeners();
   }
 
   Future<void> choose(GroupOfDay group) {
+    if (saving) return Future<void>.value();
     return _confirm(group, ValueOrigin.manual);
   }
 
   Future<void> _confirm(GroupOfDay group, String origin) async {
-    await repository.confirm(group, origin);
-    confirmed = group;
-    suggestion = null;
-    choosing = false;
+    saving = true;
+    error = null;
     notifyListeners();
-    await refreshMoment();
+    try {
+      await repository.confirm(group, origin);
+      confirmed = group;
+      suggestion = null;
+      choosing = false;
+    } catch (_) {
+      error = 'No pudimos guardar el grupo. Intenta de nuevo.';
+    } finally {
+      saving = false;
+      notifyListeners();
+    }
+    if (error == null) await refreshMoment();
   }
 
   @override

@@ -150,7 +150,11 @@ class _GroupingSyncReportState extends State<GroupingSyncReport> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${_platform(row['platform'])} · ${row['appVersion'] ?? ''}',
+                  [
+                    _platform(row['platform']),
+                    if ('${row['appVersion'] ?? ''}'.isNotEmpty)
+                      '${row['appVersion']}',
+                  ].join(' · '),
                   style: text.labelMedium,
                 ),
                 Text(

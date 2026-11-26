@@ -89,7 +89,14 @@ class _ActivitiesViewState extends State<ActivitiesView> {
                     style: const TextStyle(color: AppTheme.red),
                   ),
                   TextButton(
-                    onPressed: _viewModel.loadPlan,
+                    onPressed: () {
+                      final failed = _viewModel.failedTemplate;
+                      if (failed != null) {
+                        _useTemplate(failed);
+                      } else {
+                        _viewModel.loadPlan();
+                      }
+                    },
                     child: const Text('Reintentar'),
                   ),
                 ],
@@ -105,15 +112,24 @@ class _ActivitiesViewState extends State<ActivitiesView> {
                 for (final t in _viewModel.library) ...[
                   _TemplateTile(
                     template: t,
-                    onUse: () {
-                      _useTemplate(t);
-                    },
+                    onUse: _viewModel.saving
+                        ? null
+                        : () {
+                            _useTemplate(t);
+                          },
                   ),
                   const SizedBox(height: 14),
                 ],
                 SectionLabel('PLANEADAS HOY · ${_viewModel.planned.length}'),
                 const SizedBox(height: 14),
-                if (_viewModel.planned.isEmpty)
+                if (_viewModel.planned.isEmpty && !_viewModel.planLoaded)
+                  Text(
+                    _viewModel.loading
+                        ? 'Cargando tu plan…'
+                        : 'No pudimos mostrar tu plan todavía.',
+                    style: text.bodyLarge?.copyWith(color: AppTheme.softInk),
+                  )
+                else if (_viewModel.planned.isEmpty)
                   Text(
                     'Todavía no has planeado actividades.',
                     style: text.bodyLarge?.copyWith(color: AppTheme.softInk),

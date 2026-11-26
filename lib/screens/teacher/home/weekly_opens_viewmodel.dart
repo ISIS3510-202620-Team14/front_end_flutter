@@ -11,6 +11,8 @@ class WeeklyOpensViewModel extends SafeNotifier {
   int count = 0;
   int pending = 0;
   bool loading = false;
+  // False until the first read of the phone ends, so the card does not show a made-up 0.
+  bool loaded = false;
   bool _started = false;
   // Type 5 BQ: whether the opens are dropping, so Hoy shows the card to come back.
   EngagementRisk risk = EngagementRisk.none;
@@ -67,6 +69,7 @@ class WeeklyOpensViewModel extends SafeNotifier {
       // Sin lectura local no hay nada que mostrar: se conserva el último valor.
     }
     loading = false;
+    loaded = true;
     notifyListeners();
   }
 

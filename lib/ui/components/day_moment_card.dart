@@ -41,7 +41,9 @@ _MomentTexts _textsOf(DayMoment moment, DaySummary summary) {
       return _MomentTexts(
         'En clase',
         'Clase en curso con $group',
-        'Ya registraste ${summary.attendanceMarks} asistencia(s). Es buen momento para la evaluación formativa.',
+        summary.attendanceMarks == 1
+            ? 'Ya registraste 1 asistencia. Es buen momento para la evaluación formativa.'
+            : 'Ya registraste ${summary.attendanceMarks} asistencias. Es buen momento para la evaluación formativa.',
         'Evaluación formativa',
       );
     case DayMoment.wrapUp:
