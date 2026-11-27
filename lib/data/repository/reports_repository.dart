@@ -1,6 +1,10 @@
 // lib/data/repository/reports_repository.dart
+import 'package:flutter/foundation.dart';
 import 'package:front_end_flutter/data/cache/memory_cache.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
+import 'package:front_end_flutter/domain/model/engagement_risk.dart';
+import 'package:front_end_flutter/domain/model/teacher_at_risk.dart';
+import 'package:front_end_flutter/ui/theme/app_date.dart';
 
 /** Reads the admin reports and keeps them in memory, like ReportesRepository in the Kotlin app. */
 class ReportsRepository {
@@ -102,6 +106,47 @@ class ReportsRepository {
       expires: (Map<String, dynamic> result) {
         return result['provisional'] != false;
       },
+    );
+  }
+
+  /**
+   * BQ 14: teachers whose opens dropped in the last complete week compared to the three before.
+   * The four weeks are asked at the same time and the rule runs in another isolate.
+   */
+  Future<Map<String, dynamic>> teachersAtRisk({
+    bool force = false,
+    String? currentWeek,
+  }) {
+    final DateTime monday = DateTime.parse(
+      currentWeek ?? AppDate.mondayOfWeek(DateTime.now()),
+    );
+    // Oldest first; the current week is left out because it is not over yet.
+    final List<String> weeks = [
+      for (int back = EngagementRisk.baselineWeeks + 1; back >= 1; back--)
+        monday
+            .subtract(Duration(days: 7 * back))
+            .toIso8601String()
+            .substring(0, 10),
+    ];
+    return _reportCache.getOrLoad<Map<String, dynamic>>(
+      'riesgo:${weeks.last}',
+      () async {
+        final List<Map<String, dynamic>> answers = await Future.wait([
+          for (final String week in weeks)
+            _api.request('GET', 'appOpens/teachers', query: {'week': week}),
+        ]);
+        for (final Map<String, dynamic> answer in answers) {
+          if (answer['teachers'] is! List) {
+            throw const ApiException(502, 'El reporte recibido está incompleto.');
+          }
+        }
+        final List<Map<String, dynamic>> teachers = await compute(
+          TeacherAtRisk.findAtRisk,
+          answers,
+        );
+        return {'lastWeek': weeks.last, 'teachers': teachers};
+      },
+      force: force,
     );
   }
 

@@ -12,6 +12,7 @@ import 'package:front_end_flutter/screens/admin/grouping_sync_report.dart';
 import 'package:front_end_flutter/screens/admin/hours_report.dart';
 import 'package:front_end_flutter/screens/admin/scan_quality_report.dart';
 import 'package:front_end_flutter/screens/admin/scan_review_report.dart';
+import 'package:front_end_flutter/screens/admin/teachers_at_risk_report.dart';
 import 'package:front_end_flutter/screens/admin/top_activities_report.dart';
 import 'package:front_end_flutter/screens/admin/weekly_opens_report.dart';
 
