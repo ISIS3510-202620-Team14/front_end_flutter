@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
+import 'package:front_end_flutter/data/local/saved_reports_store.dart';
 import 'package:front_end_flutter/data/repository/attendance_conflicts.dart';
 import 'package:front_end_flutter/data/repository/reports_repository.dart';
 import 'package:front_end_flutter/screens/admin/report_format.dart';
 import 'package:front_end_flutter/screens/admin/report_header.dart';
 import 'package:front_end_flutter/screens/admin/report_message.dart';
+import 'package:front_end_flutter/screens/admin/saved_copy_status.dart';
 import 'package:front_end_flutter/ui/components/enad_progress.dart';
 import 'package:front_end_flutter/ui/components/enad_panel.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
@@ -12,9 +14,15 @@ import 'package:front_end_flutter/ui/theme/app_theme.dart';
 /** Teachers who opened the app more than once in a week. */
 class WeeklyOpensReport extends StatefulWidget {
   /** Allows an injected repository and week for tests. */
-  const WeeklyOpensReport({super.key, this.reports, this.currentWeek});
+  const WeeklyOpensReport({
+    super.key,
+    this.reports,
+    this.currentWeek,
+    this.store,
+  });
   final ReportsRepository? reports;
   final String? currentWeek;
+  final SavedReportsStore? store;
 
   @override
   State<WeeklyOpensReport> createState() {
@@ -27,9 +35,14 @@ class _WeeklyOpensReportState extends State<WeeklyOpensReport> {
   late final ReportsRepository _reports;
   late final String _currentWeek;
   late String _week;
+  late final SavedReportsStore _store;
+  late final ReconnectWatcher _watcher;
   Map<String, dynamic>? _report;
   String? _error;
   bool _loading = true;
+  // True when what is on screen is the saved copy and the last refresh failed.
+  bool _showingSaved = false;
+  DateTime? _savedAt;
   int _request = 0;
 
   @override
@@ -39,6 +52,12 @@ class _WeeklyOpensReportState extends State<WeeklyOpensReport> {
       _ownedApi = ApiClient(localFirst: false);
     }
     _reports = widget.reports ?? ReportsRepository(_ownedApi!);
+    _store = widget.store ?? savedReportsStoreOfSession();
+    _watcher = ReconnectWatcher(
+      onReconnect: () {
+        if (mounted) _load(force: true);
+      },
+    );
     _currentWeek =
         widget.currentWeek ??
         AttendanceConflicts.weekOf(
@@ -54,29 +73,54 @@ class _WeeklyOpensReportState extends State<WeeklyOpensReport> {
 
   @override
   void dispose() {
+    _watcher.dispose();
     _ownedApi?.dispose();
     super.dispose();
   }
 
-  /** Reads one week; force skips the memory cache. */
+  String get _savedKey {
+    return 'weekly_opens_$_week';
+  }
+
+  /**
+   * Reads one week. The copy saved on the phone shows first, the network answer replaces it,
+   * and if the network fails the copy stays on screen with a notice. Force skips the memory cache.
+   */
   Future<void> _load({bool force = false}) async {
     final request = ++_request;
     setState(() {
       _loading = true;
       _error = null;
-      _report = null;
     });
+    if (_report == null) {
+      final saved = await _store.read(_savedKey);
+      if (!mounted || request != _request) return;
+      if (saved != null) {
+        setState(() {
+          _report = saved.data;
+          _savedAt = saved.savedAt;
+        });
+      }
+    }
     try {
       final result = await _reports.weeklyOpens(_week, force: force);
       if (!mounted || request != _request) return;
       setState(() {
         _report = result;
+        _showingSaved = false;
+        _savedAt = null;
         _loading = false;
       });
+      await _store.save(_savedKey, result);
     } catch (error) {
       if (!mounted || request != _request) return;
+      _watcher.waiting = true;
       setState(() {
-        _error = reportErrorMessage(error);
+        if (_report != null) {
+          _showingSaved = true;
+        } else {
+          _error = reportErrorMessage(error);
+        }
         _loading = false;
       });
     }
@@ -88,6 +132,10 @@ class _WeeklyOpensReportState extends State<WeeklyOpensReport> {
         .add(Duration(days: days))
         .toIso8601String()
         .substring(0, 10);
+    // The report on screen belongs to the other week.
+    _report = null;
+    _showingSaved = false;
+    _savedAt = null;
     _load();
   }
 
@@ -137,11 +185,20 @@ class _WeeklyOpensReportState extends State<WeeklyOpensReport> {
           ],
         ),
         const SizedBox(height: 12),
-        if (_loading)
+        if (_report == null && _loading)
           const ReportLoading()
-        else if (_error != null)
+        else if (_report == null && _error != null)
           ReportMessagePanel(text: _error!)
-        else if (_report != null)
+        else if (_report != null) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SavedCopyStatus(
+              loading: _loading,
+              showingSavedCopy: _showingSaved,
+              savedAt: _savedAt,
+            ),
+          ),
+          const SizedBox(height: 12),
           EnadPanel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -184,6 +241,7 @@ class _WeeklyOpensReportState extends State<WeeklyOpensReport> {
               ],
             ),
           ),
+        ],
       ],
     );
   }
