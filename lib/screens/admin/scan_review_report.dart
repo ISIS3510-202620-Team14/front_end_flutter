@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
 import 'package:front_end_flutter/data/repository/scan_reports_repository.dart';
 import 'package:front_end_flutter/screens/admin/report_format.dart';
-import 'package:front_end_flutter/screens/admin/report_message.dart';
+import 'package:front_end_flutter/data/repository/report_loader.dart';
+import 'package:front_end_flutter/screens/admin/report_snapshot_mixin.dart';
 import 'package:front_end_flutter/screens/admin/report_row.dart';
 import 'package:front_end_flutter/ui/components/enad_panel.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
@@ -26,7 +27,8 @@ class ScanReviewReport extends StatefulWidget {
   }
 }
 
-class _ScanReviewReportState extends State<ScanReviewReport> {
+class _ScanReviewReportState extends State<ScanReviewReport>
+    with ReportSnapshotMixin<ScanReviewReport> {
   ApiClient? _ownedApi;
   late final ScanReportsRepository _repository;
   Map<String, dynamic>? _report;
@@ -49,6 +51,11 @@ class _ScanReviewReportState extends State<ScanReviewReport> {
     super.dispose();
   }
 
+  @override
+  void reloadReport() {
+    _load(force: true);
+  }
+
   /** Reads the report; force skips the memory cache. */
   Future<void> _load({bool force = false}) async {
     setState(() {
@@ -56,7 +63,9 @@ class _ScanReviewReportState extends State<ScanReviewReport> {
       _error = null;
     });
     try {
-      final result = await _repository.scanReview(force: force);
+      final result = await loadReport(MyReports.scanReview, () {
+        return _repository.scanReview(force: force);
+      });
       if (!mounted) return;
       setState(() {
         _report = result;
@@ -65,13 +74,13 @@ class _ScanReviewReportState extends State<ScanReviewReport> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = reportErrorMessage(error);
+        _error = reportError(error);
         _loading = false;
       });
     }
   }
 
-  /** Rows and share of one line of the report, e.g. "unchanged" or the field "name". */
+  /** Rows and share of one line of the report. */
   Widget _countRow(String label, Object? count) {
     final rows = count is Map ? (count['rows'] as num?) ?? 0 : 0;
     final share = count is Map ? count['share'] as num? : null;
@@ -166,6 +175,7 @@ class _ScanReviewReportState extends State<ScanReviewReport> {
             ),
           ],
         ),
+        snapshotNotice(),
         if (_loading)
           const Padding(
             padding: EdgeInsets.only(top: 24),

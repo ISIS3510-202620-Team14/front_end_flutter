@@ -1,10 +1,11 @@
 // lib/screens/admin/assessments_report.dart
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
+import 'package:front_end_flutter/data/repository/report_loader.dart';
 import 'package:front_end_flutter/data/repository/reports_repository.dart';
 import 'package:front_end_flutter/screens/admin/report_format.dart';
-import 'package:front_end_flutter/screens/admin/report_message.dart';
 import 'package:front_end_flutter/screens/admin/report_pill.dart';
+import 'package:front_end_flutter/screens/admin/report_snapshot_mixin.dart';
 import 'package:front_end_flutter/ui/components/enad_panel.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
 
@@ -22,7 +23,8 @@ class AssessmentsReport extends StatefulWidget {
   }
 }
 
-class _AssessmentsReportState extends State<AssessmentsReport> {
+class _AssessmentsReportState extends State<AssessmentsReport>
+    with ReportSnapshotMixin<AssessmentsReport> {
   ApiClient? _ownedApi;
   late final ReportsRepository _reports;
   Map<String, dynamic>? _report;
@@ -45,14 +47,21 @@ class _AssessmentsReportState extends State<AssessmentsReport> {
     super.dispose();
   }
 
-  /** Reads the report; force skips the memory cache. */
+  @override
+  void reloadReport() {
+    _load(force: true);
+  }
+
+  /** Reads the report (network or the copy saved on the phone); force skips the memory cache. */
   Future<void> _load({bool force = false}) async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final result = await _reports.assessmentsByGrade(force: force);
+      final result = await loadReport(MyReports.assessments, () {
+        return _reports.assessmentsByGrade(force: force);
+      });
       if (!mounted) return;
       setState(() {
         _report = result;
@@ -61,7 +70,7 @@ class _AssessmentsReportState extends State<AssessmentsReport> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = reportErrorMessage(error);
+        _error = reportError(error);
         _loading = false;
       });
     }
@@ -176,6 +185,7 @@ class _AssessmentsReportState extends State<AssessmentsReport> {
             ),
           ],
         ),
+        snapshotNotice(),
         if (_loading)
           const Padding(
             padding: EdgeInsets.only(top: 24),

@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
 import 'package:front_end_flutter/data/repository/scan_reports_repository.dart';
 import 'package:front_end_flutter/screens/admin/report_format.dart';
-import 'package:front_end_flutter/screens/admin/report_message.dart';
+import 'package:front_end_flutter/data/repository/report_loader.dart';
+import 'package:front_end_flutter/screens/admin/report_snapshot_mixin.dart';
 import 'package:front_end_flutter/screens/admin/report_row.dart';
 import 'package:front_end_flutter/ui/components/enad_panel.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
 
-///With at least this many pages on each side of the comparison, a conclusion can be drawn.
+///With at least this many pages on each side of the comparison, a conclusion can be drawn. 5 is the base number we chosed
 const _minPagesToCompare = 5;
 
 // Labels for the report rows.
@@ -40,7 +41,8 @@ class ScanQualityReport extends StatefulWidget {
   }
 }
 
-class _ScanQualityReportState extends State<ScanQualityReport> {
+class _ScanQualityReportState extends State<ScanQualityReport>
+    with ReportSnapshotMixin<ScanQualityReport> {
   ApiClient? _ownedApi;
   late final ScanReportsRepository _repository;
   Map<String, dynamic>? _report;
@@ -63,6 +65,11 @@ class _ScanQualityReportState extends State<ScanQualityReport> {
     super.dispose();
   }
 
+  @override
+  void reloadReport() {
+    _load(force: true);
+  }
+
   /** Reads the report; force skips the memory cache. */
   Future<void> _load({bool force = false}) async {
     setState(() {
@@ -70,7 +77,9 @@ class _ScanQualityReportState extends State<ScanQualityReport> {
       _error = null;
     });
     try {
-      final result = await _repository.scanQuality(force: force);
+      final result = await loadReport(MyReports.scanQuality, () {
+        return _repository.scanQuality(force: force);
+      });
       if (!mounted) return;
       setState(() {
         _report = result;
@@ -79,7 +88,7 @@ class _ScanQualityReportState extends State<ScanQualityReport> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = reportErrorMessage(error);
+        _error = reportError(error);
         _loading = false;
       });
     }
@@ -242,6 +251,7 @@ class _ScanQualityReportState extends State<ScanQualityReport> {
             ),
           ],
         ),
+        snapshotNotice(),
         if (_loading)
           const Padding(
             padding: EdgeInsets.only(top: 24),

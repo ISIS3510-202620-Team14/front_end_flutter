@@ -4,7 +4,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
 import 'package:front_end_flutter/data/repository/reports_repository.dart';
-import 'package:front_end_flutter/screens/admin/report_message.dart';
+import 'package:front_end_flutter/data/repository/report_loader.dart';
+import 'package:front_end_flutter/screens/admin/report_snapshot_mixin.dart';
 import 'package:front_end_flutter/ui/components/enad_panel.dart';
 
 /** Average minutes per 25 classified students, by school and teacher. */
@@ -19,14 +20,14 @@ class ClassificationReport extends StatefulWidget {
   }
 }
 
-class _ClassificationReportState extends State<ClassificationReport> {
+class _ClassificationReportState extends State<ClassificationReport>
+    with ReportSnapshotMixin<ClassificationReport> {
   static const _subjects = <String?, String>{
     null: 'Todas',
     'matematicas': 'Matemáticas',
     'lectura': 'Lectura',
   };
-  // Cada cuánto se vuelve a pedir el reporte mientras el admin lo tiene en pantalla,
-  // igual que ReporteClasificacionViewModel en Kotlin.
+  // Asks for the report again every 30 s while it is open, like ReporteClasificacionViewModel in Kotlin.
   static const _refreshInterval = Duration(seconds: 30);
   ApiClient? _ownedApi;
   late final ReportsRepository _reports;
@@ -57,10 +58,14 @@ class _ClassificationReportState extends State<ClassificationReport> {
     super.dispose();
   }
 
+  @override
+  void reloadReport() {
+    _load(force: true);
+  }
+
   /**
-   * Reads the report of the chosen subject; force skips the memory cache.
-   * [silent]: if there is already data on screen, no spinner and a failure
-   * keeps what is already shown (used by the 30 s auto-refresh).
+   * Reads the chosen subject. force skips the memory cache; silent (the 30 s refresh)
+   * keeps the data on screen if the request fails.
    */
   Future<void> _load({bool force = false, bool silent = false}) async {
     final subject = _subject;
@@ -73,9 +78,11 @@ class _ClassificationReportState extends State<ClassificationReport> {
       });
     }
     try {
-      final result = await _reports.classification(
-        subject: subject,
-        force: force,
+      final result = await loadReport(
+        '${MyReports.classification}_${subject ?? 'todas'}',
+        () {
+          return _reports.classification(subject: subject, force: force);
+        },
       );
       // Si cambió la materia mientras cargaba, esta respuesta ya no aplica.
       if (!mounted || subject != _subject) return;
@@ -88,7 +95,7 @@ class _ClassificationReportState extends State<ClassificationReport> {
       if (!mounted || subject != _subject) return;
       if (background) return;
       setState(() {
-        _error = reportErrorMessage(error);
+        _error = reportError(error);
         _loading = false;
       });
     }
@@ -171,6 +178,7 @@ class _ClassificationReportState extends State<ClassificationReport> {
         const Text(
           'Tiempo que toma clasificar, por institución. Cada docente pesa igual en el promedio.',
         ),
+        snapshotNotice(),
         if (_loading)
           const Padding(
             padding: EdgeInsets.only(top: 24),
