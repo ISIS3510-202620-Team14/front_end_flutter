@@ -23,8 +23,17 @@ class AutomaticGrouping {
     }
   }
 
+  // Compiled once: building it inside the sort compared it again on every comparison.
+  static final RegExp _nonDigits = RegExp(r'[^0-9]');
+
   static int _grade(Student student) {
-    return int.tryParse(student.grade.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    return int.tryParse(student.grade.replaceAll(_nonDigits, '')) ?? 0;
+  }
+
+  /** Students not classified yet go after every level. */
+  static int _rank(Student student, String subject) {
+    final int order = levelOrder(student, subject);
+    return order == 0 ? 1 << 20 : order;
   }
 
   /**
@@ -42,18 +51,18 @@ class AutomaticGrouping {
           student.schoolId == schoolId &&
           !alreadyGrouped.contains(student.id);
     }).toList();
-    int rank(Student student) {
-      final int order = levelOrder(student, subject);
-      return order == 0 ? 1 << 20 : order;
-    }
-
-    free.sort((Student a, Student b) {
-      final int byLevel = rank(a).compareTo(rank(b));
+    // The level and the grade are worked out once per student, not on every comparison.
+    final List<({Student student, int rank, int grade})> keyed = [
+      for (final Student student in free)
+        (student: student, rank: _rank(student, subject), grade: _grade(student)),
+    ];
+    keyed.sort((a, b) {
+      final int byLevel = a.rank.compareTo(b.rank);
       if (byLevel != 0) return byLevel;
-      final int byGrade = _grade(a).compareTo(_grade(b));
+      final int byGrade = a.grade.compareTo(b.grade);
       if (byGrade != 0) return byGrade;
-      return a.name.compareTo(b.name);
+      return a.student.name.compareTo(b.student.name);
     });
-    return free;
+    return [for (final item in keyed) item.student];
   }
 }
