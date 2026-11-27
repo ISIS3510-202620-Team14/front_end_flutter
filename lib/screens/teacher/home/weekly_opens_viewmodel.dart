@@ -59,11 +59,13 @@ class WeeklyOpensViewModel extends SafeNotifier {
 
   Future<void> _refresh() async {
     try {
-      count = await repository.weeklyCount();
-      pending = await repository.pendingCount();
-      risk = EngagementRisk.fromWeeklyOpens(
-        await repository.completedWeeksOpens(EngagementRisk.baselineWeeks + 1),
+      // One read of the saved list for the three numbers.
+      final summary = await repository.weekSummary(
+        EngagementRisk.baselineWeeks + 1,
       );
+      count = summary.thisWeek;
+      pending = summary.pending;
+      risk = EngagementRisk.fromWeeklyOpens(summary.completedWeeks);
       _logRisk();
     } catch (_) {
       // Sin lectura local no hay nada que mostrar: se conserva el último valor.
