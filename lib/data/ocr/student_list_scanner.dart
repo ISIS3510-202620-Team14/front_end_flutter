@@ -125,12 +125,13 @@ class StudentListScanner {
       return [
         for (final block in result.blocks)
           for (final line in block.lines)
-            (
-              text: line.text,
-              left: line.boundingBox.left,
-              top: line.boundingBox.top,
-              bottom: line.boundingBox.bottom,
-            ),
+            for (final word in line.elements)
+              (
+                text: word.text,
+                left: word.boundingBox.left,
+                top: word.boundingBox.top,
+                bottom: word.boundingBox.bottom,
+              ),
       ];
     } finally {
       await recognizer.close();
@@ -161,133 +162,173 @@ class StudentListScanner {
 
   // # micro opt
   static final _spaces = RegExp(r'\s+');
-  static final _digits = RegExp(r'\d');
-  static final _letters = RegExp(r'[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]');
-  static final _numeric = RegExp(r'^\d+$');
-  static final _trim = RegExp(r'^[|;,:]+|[|;,:]+$');
+  static final _code = RegExp(
+    r'^(?=[A-Z0-9-]*[0-9])[A-Z0-9][A-Z0-9-]{1,19}$',
+    caseSensitive: false,
+  );
+  static final _person = RegExp(
+    r"^[A-Za-zÁÉÍÓÚÑÜáéíóúñü]+(?:[-’'][A-Za-zÁÉÍÓÚÑÜáéíóúñü]+)*$",
+  );
   static final _marks = RegExp(r'[\u0300-\u036f]');
-  static const _grades = {'tercero': 3, 'tercer': 3, 'cuarto': 4, 'quinto': 5};
-  static const _headers = {
-    'nombre',
-    'código',
-    'codigo',
-    'grado',
-    'edad',
-    'asistencia',
-    'lista',
-    'fecha',
-    'colegio',
-    'docente',
-    'curso',
-  };
 
-  /** Rebuilds rows with the same geometry rule as Kotlin. */
+  /** Reads cells below the printed header, using the column positions on this page. */
   static List<ScannedRow> parseLines(
     List<({String text, double left, double top, double bottom})> source,
   ) {
-    // # samuel charry contribution: F17 keeps bad geometry out of row reconstruction.
-    final valid = source.where((line) {
-      return line.left.isFinite &&
-          line.top.isFinite &&
-          line.bottom.isFinite &&
-          line.bottom > line.top;
-    }).toList();
-    if (valid.isEmpty) return [];
-    var height = 0.0;
-    for (final line in valid) {
-      height += line.bottom - line.top;
-    }
-    final tolerance = height / valid.length * 0.6;
-    final lines = List.of(valid)
-      ..sort((a, b) {
-        return (a.top + a.bottom).compareTo(b.top + b.bottom);
-      });
-    final groups =
-        <List<({String text, double left, double top, double bottom})>>[];
-    var center = 0.0;
-    for (final line in lines) {
-      final current = (line.top + line.bottom) / 2;
-      if (groups.isEmpty || (current - center).abs() > tolerance) {
-        groups.add([line]);
-        center = current;
-      } else {
-        groups.last.add(line);
-      }
-    }
-    final rows = <String>[];
-    for (final group in groups) {
-      group.sort((a, b) {
-        return a.left.compareTo(b.left);
-      });
-      rows.add(
-        group
-            .map((line) {
-              return line.text;
-            })
-            .join(' '),
-      );
-    }
-    return parseRows(rows);
-  }
-
-  /** Reads names, codes, grades and ages using same rules as Kotlin. */
-  static List<ScannedRow> parseRows(Iterable<String> lines) {
-    final rows = <ScannedRow>[];
-    for (final line in lines) {
-      final tokens = line
-          .split(_spaces)
-          .map((part) {
-            return part.replaceAll(_trim, '');
-          })
-          .where((part) {
-            return part.isNotEmpty;
-          })
-          .toList();
-      if (tokens.length > 1 &&
-          tokens.first.length <= 2 &&
-          _numeric.hasMatch(tokens.first) &&
-          _letters.hasMatch(tokens[1])) {
-        tokens.removeAt(0);
-      }
-      final firstNumber = tokens.indexWhere((part) {
-        return _digits.hasMatch(part);
-      });
-      if (firstNumber < 1) continue;
-      int? grade;
-      int? age;
-      String code = '';
-      final nameParts = <String>[];
-      for (final part in tokens.take(firstNumber)) {
-        final value = _grades[part.toLowerCase()];
-        if (value != null) {
-          grade = value;
-        } else {
-          nameParts.add(part);
+    final words =
+        source
+            .where(
+              (w) =>
+                  w.left.isFinite &&
+                  w.top.isFinite &&
+                  w.bottom.isFinite &&
+                  w.bottom > w.top &&
+                  w.text.trim().isNotEmpty,
+            )
+            .toList()
+          ..sort((a, b) => (a.top + a.bottom).compareTo(b.top + b.bottom));
+    if (words.isEmpty) return [];
+    final heights = words.map((w) => w.bottom - w.top).toList()..sort();
+    final tolerance = heights[heights.length ~/ 2] * .65;
+    // Column titles provide a baseline even when the photograph is tilted.
+    final gradeTitles = words.where((w) => _column(w.text) == 'grade');
+    final nameTitles = words.where((w) => _column(w.text) == 'name');
+    var slope = 0.0;
+    baseline:
+    for (final grade in gradeTitles) {
+      for (final name in nameTitles) {
+        final dx = grade.left - name.left;
+        if (dx.abs() < tolerance * 4) continue;
+        final candidate =
+            (grade.top + grade.bottom - name.top - name.bottom) / (2 * dx);
+        if (candidate.abs() <= .18) {
+          slope = candidate;
+          break baseline;
         }
       }
-      if (nameParts.any((part) {
-        return _headers.contains(part.toLowerCase());
-      })) {
+    }
+    double level(({String text, double left, double top, double bottom}) word) {
+      return (word.top + word.bottom) / 2 - slope * word.left;
+    }
+
+    words.sort((a, b) => level(a).compareTo(level(b)));
+    final lines =
+        <List<({String text, double left, double top, double bottom})>>[];
+    var center = double.negativeInfinity;
+    for (final word in words) {
+      final y = level(word);
+      if (y - center > tolerance) {
+        lines.add([]);
+        center = y;
+      }
+      lines.last.add(word);
+    }
+    var columns = <({String key, double left})>[];
+    final result = <ScannedRow>[];
+    for (final line in lines) {
+      line.sort((a, b) => a.left.compareTo(b.left));
+      final titles = <String, double>{};
+      for (final word in line) {
+        final key = _column(word.text);
+        if (key != null) titles.putIfAbsent(key, () => word.left);
+      }
+      // A damaged code heading can split into "C" and digits. Accept it only
+      // between the name and grade headings, above two aligned student codes.
+      if (titles.containsKey('name') &&
+          titles.containsKey('grade') &&
+          !titles.containsKey('code')) {
+        for (final w in line) {
+          if (!w.text.toLowerCase().startsWith('c') ||
+              w.left <= titles['name']! ||
+              w.left >= titles['grade']!)
+            continue;
+          final aligned = words.where(
+            (item) =>
+                item.top > w.bottom &&
+                (item.left - w.left).abs() < tolerance * 2 &&
+                _code.hasMatch(item.text) &&
+                item.text.length >= 4,
+          );
+          if (aligned.take(2).length == 2) {
+            titles['code'] = w.left;
+            break;
+          }
+        }
+      }
+      if (titles.containsKey('name') &&
+          titles.containsKey('grade') &&
+          titles.containsKey('code')) {
+        columns = [for (final t in titles.entries) (key: t.key, left: t.value)]
+          ..sort((a, b) => a.left.compareTo(b.left));
         continue;
       }
-      final name = nameParts.join(' ');
-      if (name.length < 3) continue;
-      for (final part in tokens.skip(firstNumber)) {
-        final digits = _digits.allMatches(part).map((match) {
-          return match.group(0)!;
-        }).join();
-        final value = int.tryParse(digits);
-        if (code.isEmpty && part.length >= 3 && digits.isNotEmpty) {
-          code = part;
-        } else if (value != null && grade == null && value >= 3 && value <= 5) {
-          grade = value;
-        } else if (value != null && age == null && value >= 5 && value <= 99) {
-          age = value;
-        }
+      if (columns.isEmpty) continue;
+      if (line
+          .map((w) => w.text.toLowerCase())
+          .join(' ')
+          .contains('fin de lista')) {
+        columns.clear();
+        continue;
       }
-      rows.add(ScannedRow(name, code: code, grade: grade, age: age));
+      final cells = <String, List<String>>{};
+      final margin = heights[heights.length ~/ 2] * .8;
+      for (final word in line) {
+        final index = columns.lastIndexWhere(
+          (column) => word.left >= column.left - margin,
+        );
+        if (index < 0 && (word.left - columns.first.left).abs() > margin * 4)
+          continue;
+        final column = columns[index < 0 ? 0 : index];
+        if (column.key == 'sex' && word.left > column.left + margin * 3)
+          continue;
+        cells.putIfAbsent(column.key, () => []).add(word.text.trim());
+      }
+      final code = cells['code']?.join() ?? '';
+      final names = (cells['name']?.join(' ') ?? '').split(_spaces);
+      final grade = int.tryParse(cells['grade']?.join() ?? '');
+      final ageText = cells['age']?.join() ?? '';
+      final age = int.tryParse(ageText);
+      final sex = cells['sex']?.join().toUpperCase() ?? '';
+      if ((code.isNotEmpty && !_code.hasMatch(code)) ||
+          names.length < 2 ||
+          !names.every(_person.hasMatch) ||
+          grade == null ||
+          grade < 3 ||
+          grade > 5 ||
+          (ageText.isNotEmpty && (age == null || age < 5 || age > 18)) ||
+          !{'', 'F', 'M'}.contains(sex)) {
+        continue;
+      }
+      result.add(
+        ScannedRow(
+          names.join(' '),
+          code: code,
+          grade: grade,
+          age: age,
+          sex: sex,
+        ),
+      );
     }
-    return rows;
+    return result;
+  }
+
+  /** Maps printed column headings to editable fields. */
+  static String? _column(String text) {
+    final label = text.trim().toLowerCase().replaceAll('ó', 'o');
+    return switch (label) {
+      'nombre' ||
+      'nombres' ||
+      'nombre y apellidos' ||
+      'apellido' ||
+      'apellidos' ||
+      'estudiante' => 'name',
+      'codigo' => 'code',
+      'grado' || 'graöo' || 'gra0o' => 'grade',
+      'edad' || 'ed•d' => 'age',
+      'sexo' => 'sex',
+      'asistencia' => 'attendance',
+      _ => null,
+    };
   }
 
   /** Uses the code, or a normalized name when no code exists. */
