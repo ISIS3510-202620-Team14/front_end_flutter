@@ -18,8 +18,13 @@ class AppOpensRepository {
   static const int batchSize = 200;
   Future<void>? _running;
 
-  Future<void> registerOpen([DateTime? now]) async {
+  /** Saves the open on the phone only; sending it is a separate step so the screen does not wait for the network. */
+  Future<void> recordOpen([DateTime? now]) async {
     await _store.register(now ?? DateTime.now());
+  }
+
+  Future<void> registerOpen([DateTime? now]) async {
+    await recordOpen(now);
     await synchronize();
   }
 

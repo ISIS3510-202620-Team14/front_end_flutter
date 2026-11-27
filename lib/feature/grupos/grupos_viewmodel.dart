@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:front_end_flutter/data/sync/offline_runtime.dart';
 import 'package:front_end_flutter/ui/utils/user_message.dart';
 import 'package:flutter/foundation.dart';
@@ -213,7 +214,7 @@ class GruposViewModel extends SafeNotifier {
       return;
     }
     try {
-      await _sessionService.register(
+      await _sessionService.save(
         schoolId: schoolId,
         subject: subject,
         groupName: name,
@@ -223,7 +224,11 @@ class GruposViewModel extends SafeNotifier {
       );
     } catch (error) {
       debugPrint('Grouping session was not registered: $error');
+      return;
     }
+    // Fire and forget: the session is already saved on the phone, so the dialog does not
+    // wait for the send; if it fails it stays pending and is tried again later.
+    unawaited(_retryPendingSessions());
   }
 
   /**
