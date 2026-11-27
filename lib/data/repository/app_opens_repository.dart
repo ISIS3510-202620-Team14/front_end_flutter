@@ -38,6 +38,36 @@ class AppOpensRepository {
     ];
   }
 
+  /**
+   * What the weekly card needs, from one read of the saved list: this week's opens, the opens
+   * waiting to be sent and the opens of the complete weeks before this one (oldest first).
+   * Asking each one separately read and decoded the whole list again every time.
+   */
+  Future<({int thisWeek, int pending, List<int> completedWeeks})> weekSummary(
+    int weeks, [
+    DateTime? now,
+  ]) async {
+    final DateTime moment = now ?? DateTime.now();
+    final List<AppOpen> opens = await _store.read();
+    final Map<String, int> perWeek = {};
+    int pending = 0;
+    for (final AppOpen open in opens) {
+      perWeek[open.week] = (perWeek[open.week] ?? 0) + 1;
+      if (!open.sent) pending++;
+    }
+    return (
+      thisWeek: perWeek[AppDate.mondayOfWeek(moment)] ?? 0,
+      pending: pending,
+      completedWeeks: [
+        for (int back = weeks; back >= 1; back--)
+          perWeek[AppDate.mondayOfWeek(
+                moment.subtract(Duration(days: 7 * back)),
+              )] ??
+              0,
+      ],
+    );
+  }
+
   Future<int> pendingCount() async {
     return (await _store.pending()).length;
   }
