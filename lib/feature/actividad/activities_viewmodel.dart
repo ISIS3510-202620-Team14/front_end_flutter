@@ -28,6 +28,10 @@ class ActivitiesViewModel extends SafeNotifier {
   List<Activity> planned = [];
   bool loading = false;
   bool saving = false;
+  // False until today's plan was read, so "no plans yet" is not shown while it loads or fails.
+  bool planLoaded = false;
+  // The activity that could not be saved, so "Reintentar" tries it again and not the plan.
+  ActivityTemplate? failedTemplate;
   String? error;
   List<ActivityTemplate> get library {
     return _templates.where((ActivityTemplate activity) {
@@ -57,6 +61,7 @@ class ActivitiesViewModel extends SafeNotifier {
     }
     try {
       planned = await _repository.load(DateTime.now());
+      planLoaded = true;
     } catch (_) {
       error = 'No pudimos recuperar tu plan. Intenta de nuevo.';
     } finally {
@@ -73,7 +78,12 @@ class ActivitiesViewModel extends SafeNotifier {
   }
 
   Future<bool> planFromLibrary(ActivityTemplate template) async {
-    return _save(LibraryActivityCreator(template).createActivity());
+    final bool saved = await _save(
+      LibraryActivityCreator(template).createActivity(),
+    );
+    failedTemplate = saved ? null : template;
+    notifyListeners();
+    return saved;
   }
 
   Future<bool> _save(Activity activity) async {

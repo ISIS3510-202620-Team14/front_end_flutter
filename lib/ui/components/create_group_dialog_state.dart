@@ -6,6 +6,11 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   GroupingRecommendation? _recommendation;
   bool _submitting = false;
   String? _nameError;
+  // The recommendation and the creation have their own messages, not the name field's.
+  bool _loadingRecommendation = true;
+  bool _methodChosenByTeacher = false;
+  String? _recommendationError;
+  String? _submitError;
 
   @override
   void initState() {
@@ -25,7 +30,9 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       }
       setState(() {
         _recommendation = rec;
-        if (rec.hasEnoughData) {
+        _loadingRecommendation = false;
+        // If the teacher already picked a method, the answer must not change it.
+        if (rec.hasEnoughData && !_methodChosenByTeacher) {
           _selectedMethod = rec.recommended;
         }
       });
@@ -33,7 +40,8 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       debugPrint('Grouping recommendation was not loaded: $error');
       if (mounted) {
         setState(() {
-          _nameError =
+          _loadingRecommendation = false;
+          _recommendationError =
               'No pudimos cargar la recomendación. Puedes elegir el método.';
         });
       }
@@ -52,6 +60,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     setState(() {
       _submitting = true;
       _nameError = null;
+      _submitError = null;
     });
 
     final success = await widget.onConfirm(
@@ -69,7 +78,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     } else {
       setState(() {
         _submitting = false;
-        _nameError =
+        _submitError =
             'No se pudo crear el grupo. Revisa la conexión e institución.';
       });
     }
@@ -177,15 +186,43 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               ),
               const SizedBox(height: 20),
 
+              if (_loadingRecommendation)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    'Calculando la recomendación…',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.softInk,
+                    ),
+                  ),
+                ),
+              if (_recommendationError != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    _recommendationError!,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.softInk,
+                    ),
+                  ),
+                ),
               GroupingMethodSelector(
                 selected: _selectedMethod,
                 recommendation: _recommendation,
                 onChanged: (method) {
                   return setState(() {
+                    _methodChosenByTeacher = true;
                     _selectedMethod = method;
                   });
                 },
               ),
+              if (_submitError != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _submitError!,
+                  style: textTheme.bodyMedium?.copyWith(color: AppTheme.red),
+                ),
+              ],
               const SizedBox(height: 24),
 
               Row(

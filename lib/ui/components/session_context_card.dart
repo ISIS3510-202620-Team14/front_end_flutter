@@ -18,23 +18,66 @@ class SessionContextCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final GroupOfDay? suggestion = viewModel.suggestion;
     if (viewModel.loading) {
-      return const Text(
-        'Buscando tu institución…',
-        style: TextStyle(fontSize: 13, color: AppTheme.softInk),
+      return const Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppTheme.ink,
+            ),
+          ),
+          SizedBox(width: 10),
+          Text(
+            'Buscando tu institución…',
+            style: TextStyle(fontSize: 13, color: AppTheme.softInk),
+          ),
+        ],
       );
     }
     if (viewModel.choosing) return _choose(context);
     if (suggestion != null) return _suggestion(context, suggestion);
     if (viewModel.confirmed != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: viewModel.change,
+              child: const Text('Cambiar grupo'),
+            ),
+          ),
+          ..._error(),
+        ],
+      );
+    }
+    // The teacher closed the list: offer it again instead of saying there are no groups.
+    if (viewModel.groups.isNotEmpty) {
       return Align(
         alignment: Alignment.centerLeft,
         child: TextButton(
           onPressed: viewModel.change,
-          child: const Text('Cambiar grupo'),
+          child: const Text('Elegir grupo de hoy'),
         ),
       );
     }
-    return const SizedBox.shrink();
+    // Nothing to suggest: say why instead of leaving a blank space.
+    return Text(
+      viewModel.error ??
+          'No encontramos un grupo para hoy en tu horario. Cuando tengas uno, aparecerá aquí.',
+      style: const TextStyle(fontSize: 13, color: AppTheme.softInk),
+    );
+  }
+
+  /** The error of the last save, below the buttons. */
+  List<Widget> _error() {
+    final String? message = viewModel.error;
+    if (message == null) return const [];
+    return [
+      Text(message, style: const TextStyle(fontSize: 13, color: AppTheme.red)),
+    ];
   }
 
   Widget _suggestion(BuildContext context, GroupOfDay group) {
@@ -61,19 +104,20 @@ class SessionContextCard extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton(
-                  onPressed: viewModel.acceptSuggestion,
-                  child: const Text('Sí, iniciar'),
+                  onPressed: viewModel.saving ? null : viewModel.acceptSuggestion,
+                  child: Text(viewModel.saving ? 'Guardando…' : 'Sí, iniciar'),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: viewModel.change,
+                  onPressed: viewModel.saving ? null : viewModel.change,
                   child: const Text('Cambiar'),
                 ),
               ),
             ],
           ),
+          ..._error(),
         ],
       ),
     );
@@ -88,6 +132,13 @@ class SessionContextCard extends StatelessWidget {
             '¿Con qué grupo trabajas hoy?',
             style: Theme.of(context).textTheme.titleMedium,
           ),
+          if (viewModel.groups.isEmpty) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'No encontramos grupos en tu horario para hoy.',
+              style: TextStyle(fontSize: 13, color: AppTheme.softInk),
+            ),
+          ],
           for (final GroupOfDay group in viewModel.groups) ...[
             const SizedBox(height: 10),
             Material(
@@ -95,9 +146,11 @@ class SessionContextCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppTheme.controlRadius),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                onTap: () {
-                  viewModel.choose(group);
-                },
+                onTap: viewModel.saving
+                    ? null
+                    : () {
+                        viewModel.choose(group);
+                      },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -134,6 +187,14 @@ class SessionContextCard extends StatelessWidget {
               ),
             ),
           ],
+          ..._error(),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: viewModel.saving ? null : viewModel.cancelChoosing,
+              child: const Text('Cancelar'),
+            ),
+          ),
         ],
       ),
     );

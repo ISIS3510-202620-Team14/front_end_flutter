@@ -158,14 +158,10 @@ class GruposViewModel extends SafeNotifier {
       _groups.add(_parseGroup(data));
       int assigned = 0;
       if (method == GroupingMethod.automatic) {
-        assigned = await _fillAutomatically(
-          data['id'] as String,
-          school,
-          subject,
-        );
-        notice = assigned == 0
-            ? 'Grupo creado. Todos los estudiantes ya tienen grupo en esta materia.'
-            : 'Grupo creado con $assigned estudiante(s) sin grupo, ordenados por nivel.';
+        final ({int added, int failed, int chosen}) fill =
+            await _fillAutomatically(data['id'] as String, school, subject);
+        assigned = fill.added;
+        notice = _fillNotice(fill.added, fill.failed, fill.chosen);
         await loadGroups();
       }
       await _registerSession(school, subject, name, size, assigned);
@@ -181,8 +177,8 @@ class GruposViewModel extends SafeNotifier {
           ),
         );
       } catch (error) {
+        // The group is already created; the teacher gains nothing from knowing this failed.
         debugPrint('Grouping event was not recorded: $error');
-        _error = 'Grupo guardado; no pudimos registrar la recomendación de agrupación.';
       }
       notifyListeners();
       return true;
@@ -233,9 +229,29 @@ class GruposViewModel extends SafeNotifier {
   /**
    * Automatic method: adds the students without a group of this subject, ordered by level and grade.
    * Groups of every teacher of the school count, because a student can only be in one group per subject.
-   * Returns how many were added; one that fails (for example another phone took it first) is skipped.
+   * Returns how many were added, how many failed (for example another phone took them first)
+   * and how many were chosen, so the notice can be honest about it.
    */
-  Future<int> _fillAutomatically(
+  /** Says what the automatic method did, including the students that could not be added. */
+  String _fillNotice(int added, int failed, int chosen) {
+    if (chosen == 0) {
+      return 'Grupo creado. Todos los estudiantes ya tienen grupo en esta materia.';
+    }
+    final String missed = failed == 0
+        ? ''
+        : failed == 1
+        ? ' No pudimos agregar a 1 estudiante; puedes agregarlo desde el grupo.'
+        : ' No pudimos agregar a $failed estudiantes; puedes agregarlos desde el grupo.';
+    if (added == 0) {
+      return 'Grupo creado, pero no pudimos agregar estudiantes.$missed';
+    }
+    final String who = added == 1
+        ? '1 estudiante sin grupo, ordenado por nivel.'
+        : '$added estudiantes sin grupo, ordenados por nivel.';
+    return 'Grupo creado con $who$missed';
+  }
+
+  Future<({int added, int failed, int chosen})> _fillAutomatically(
     String groupId,
     String schoolId,
     String subject,
@@ -262,15 +278,17 @@ class GruposViewModel extends SafeNotifier {
       alreadyGrouped: grouped,
     );
     int added = 0;
+    int failed = 0;
     for (final Student student in chosen) {
       try {
         await _groupService.addStudentToGroup(groupId, student.id);
         added++;
       } catch (error) {
+        failed++;
         debugPrint('Student ${student.id} was not added automatically: $error');
       }
     }
-    return added;
+    return (added: added, failed: failed, chosen: chosen.length);
   }
 
   Future<void> _retryPendingSessions() async {

@@ -15,6 +15,7 @@ class WeeklyOpensCard extends StatelessWidget {
       listenable: viewModel,
       builder: (BuildContext context, Widget? child) {
         final TextTheme textTheme = Theme.of(context).textTheme;
+        final bool ready = viewModel.loaded;
         return EnadPanel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -28,21 +29,38 @@ class WeeklyOpensCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${viewModel.count}/${WeeklyOpensViewModel.goal}',
+                    ready
+                        ? '${viewModel.count}/${WeeklyOpensViewModel.goal}'
+                        : '…',
                     style: textTheme.titleLarge?.copyWith(color: AppTheme.red),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
               EnadProgress(
-                fraction: viewModel.count / WeeklyOpensViewModel.goal,
+                fraction: ready
+                    ? viewModel.count / WeeklyOpensViewModel.goal
+                    : 0,
                 color: AppTheme.red,
               ),
-              if (!viewModel.reachedGoal) ...[
+              const SizedBox(height: 8),
+              Text(
+                ready ? viewModel.message : 'Contando tus aperturas…',
+                style: textTheme.bodyMedium,
+              ),
+              if (ready && viewModel.pending > 0) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Vuelve a abrir la app esta semana para mantener al día el progreso de tus estudiantes.',
-                  style: textTheme.bodyMedium,
+                  viewModel.pending == 1
+                      ? '1 apertura está guardada en tu teléfono y se enviará cuando haya conexión.'
+                      : '${viewModel.pending} aperturas están guardadas en tu teléfono y se enviarán cuando haya conexión.',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.softInk,
+                  ),
+                ),
+                TextButton(
+                  onPressed: viewModel.retrySync,
+                  child: const Text('Enviar ahora'),
                 ),
               ],
             ],

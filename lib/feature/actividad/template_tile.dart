@@ -5,7 +5,8 @@ class _TemplateTile extends StatelessWidget {
   const _TemplateTile({required this.template, required this.onUse});
 
   final ActivityTemplate template;
-  final VoidCallback onUse;
+  // Null while another activity is being saved, which disables the button.
+  final VoidCallback? onUse;
 
   @override
   Widget build(BuildContext context) {
