@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:front_end_flutter/data/repository/app_opens_repository.dart';
 import 'package:front_end_flutter/data/telemetria/analytics_service.dart';
 import 'package:front_end_flutter/domain/model/engagement_risk.dart';
@@ -43,11 +45,23 @@ class WeeklyOpensViewModel extends SafeNotifier {
     loading = true;
     notifyListeners();
     try {
-      await repository.registerOpen();
+      await repository.recordOpen();
     } catch (_) {
-      // Si falla guardar o enviar, la tarjeta muestra lo que haya en el teléfono.
+      // Si falla guardar, la tarjeta muestra lo que haya en el teléfono.
     }
     await _refresh();
+    // Fire and forget: the count is already on screen, the send (up to 20 s without
+    // signal) goes on in the background and only updates the pending number when it ends.
+    unawaited(_sendInBackground());
+  }
+
+  Future<void> _sendInBackground() async {
+    try {
+      await repository.synchronize();
+    } catch (_) {
+      // A failed send stays pending on the phone and is tried again later.
+    }
+    if (!disposed) await _refresh();
   }
 
   Future<void> retrySync() async {
