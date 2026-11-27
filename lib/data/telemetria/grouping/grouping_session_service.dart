@@ -26,8 +26,30 @@ class GroupingSessionService {
     return result.contains(ConnectivityResult.none) ? 'offline' : 'online';
   }
 
-  /** Registers the session with the connectivity of this moment and tries to send it. */
+  /** Registers the session and tries to send it, waiting for the send to end. */
   Future<void> register({
+    required String schoolId,
+    required String subject,
+    required String groupName,
+    required int studentsCounted,
+    required int teachersCounted,
+    required int studentsAssigned,
+    DateTime? now,
+  }) async {
+    await save(
+      schoolId: schoolId,
+      subject: subject,
+      groupName: groupName,
+      studentsCounted: studentsCounted,
+      teachersCounted: teachersCounted,
+      studentsAssigned: studentsAssigned,
+      now: now,
+    );
+    await synchronize();
+  }
+
+  /** Saves the session on the phone with the connectivity of this moment, without sending it. */
+  Future<void> save({
     required String schoolId,
     required String subject,
     required String groupName,
@@ -55,7 +77,6 @@ class GroupingSessionService {
         connectivity: connectivity,
       ),
     );
-    await synchronize();
   }
 
   Future<int> pendingCount() async {
