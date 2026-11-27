@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:front_end_flutter/data/local/saved_reports_store.dart';
 import 'package:front_end_flutter/data/repository/reports_repository.dart';
 import 'package:front_end_flutter/domain/model/teacher_at_risk.dart';
@@ -68,7 +69,8 @@ class TeachersAtRiskViewModel extends SafeNotifier {
       fromSavedCopy = false;
       savedAt = DateTime.now();
       _waitingNetwork = false;
-      await store.save(reportKey, result);
+      // Fire and forget: the list is already on screen, so the copy is written in the background.
+      _saveCopy(result);
     } catch (failure) {
       // With a list on screen it becomes the saved copy and the notice says so;
       // without one, the error explains why there is nothing.
@@ -82,6 +84,20 @@ class TeachersAtRiskViewModel extends SafeNotifier {
       loading = false;
       notifyListeners();
     }
+  }
+
+  // One write after another, so two quick refreshes never write at the same time.
+  Future<void> _writes = Future<void>.value();
+
+  void _saveCopy(Map<String, dynamic> data) {
+    _writes = _writes.then((_) async {
+      try {
+        await store.save(reportKey, data);
+      } catch (error) {
+        // A copy that could not be saved only means there is none next time; the screen is fine.
+        debugPrint('Teachers at risk copy was not saved: $error');
+      }
+    });
   }
 
   void _show(Map<String, dynamic> data) {
