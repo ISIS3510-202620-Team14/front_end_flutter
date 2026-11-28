@@ -11,7 +11,7 @@ import 'package:front_end_flutter/ui/components/home_top_bar.dart';
 import 'package:front_end_flutter/ui/components/offline_notice.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
 
-/** Sprint 4 new view (BQ 16): ENAd levels of every institution, Beginner share first. */
+/** Sprint 4 new view (BQ): ENAd levels of every institution, Beginner share first. */
 class LevelMapView extends StatefulWidget {
   const LevelMapView({super.key});
 
@@ -131,9 +131,15 @@ class _LevelMapViewState extends State<LevelMapView> {
     );
   }
 
-  Widget _summary(TextTheme text) {
+  Widget _summary(TextTheme text, List<Color> colors) {
     final int assessed = _viewModel.assessed;
     final LevelRow? worst = _viewModel.needsMostSupport;
+    final List<int> totals = List<int>.filled(SchoolLevels.levels, 0);
+    for (final LevelRow row in _viewModel.rows) {
+      for (int level = 0; level < SchoolLevels.levels; level++) {
+        totals[level] += row.levels[level];
+      }
+    }
     return EnadPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,21 +158,26 @@ class _LevelMapViewState extends State<LevelMapView> {
                 : 'Necesita más apoyo: ${worst.name} (${_percent(worst.beginnerShare)})',
             style: text.titleSmall,
           ),
+          const SizedBox(height: 14),
+          _LevelsBar(counts: totals, colors: colors, height: 18),
           const SizedBox(height: 12),
           Wrap(
-            spacing: 12,
-            runSpacing: 6,
+            spacing: 14,
+            runSpacing: 8,
             children: [
-              for (final Level level in _levels)
+              for (int i = 0; i < _levels.length; i++)
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox.square(
                       dimension: 10,
-                      child: ColoredBox(color: level.color),
+                      child: ColoredBox(color: _levels[i].color),
                     ),
                     const SizedBox(width: 4),
-                    Text(level.name, style: text.bodySmall),
+                    Text(
+                      '${_levels[i].name} ${totals[i + 1]}',
+                      style: text.bodySmall,
+                    ),
                   ],
                 ),
             ],
@@ -270,14 +281,23 @@ class _LevelMapViewState extends State<LevelMapView> {
                     _viewModel.status != LevelsStatus.updating)
                   _fallback()
                 else if (rows.isNotEmpty)
-                  _summary(text),
-                const SizedBox(height: 12),
-                for (final LevelRow row in rows)
+                  _summary(text, colors),
+                const SizedBox(height: 20),
+                if (rows.isNotEmpty) ...[
+                  Text('Instituciones', style: text.titleMedium),
+                  Text(
+                    'De la que más apoyo necesita a la que menos',
+                    style: text.bodySmall,
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                for (int i = 0; i < rows.length; i++)
                   _SchoolLevelsRow(
-                    key: ValueKey(row.schoolId),
-                    row: row,
+                    key: ValueKey(rows[i].schoolId),
+                    rank: i + 1,
+                    row: rows[i],
                     colors: colors,
-                    stale: _viewModel.isStale(row),
+                    stale: _viewModel.isStale(rows[i]),
                   ),
               ],
             ),
@@ -288,20 +308,23 @@ class _LevelMapViewState extends State<LevelMapView> {
   }
 }
 
-/** One institution: stacked bar of the 6 levels and its Beginner share. */
+/** One institution: its position, stacked bar of the 6 levels and its Beginner share. */
 class _SchoolLevelsRow extends StatelessWidget {
   const _SchoolLevelsRow({
     super.key,
+    required this.rank,
     required this.row,
     required this.colors,
     required this.stale,
   });
+  final int rank;
   final LevelRow row;
   final List<Color> colors;
   final bool stale;
 
   @override
   Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
     final double? share = row.beginnerShare;
     final bool alert = share != null && share >= 50;
     return Padding(
@@ -312,12 +335,25 @@ class _SchoolLevelsRow extends StatelessWidget {
           children: [
             Row(
               children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: rank == 1 ? AppTheme.red : AppTheme.line,
+                  child: Text(
+                    '$rank',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: rank == 1 ? Colors.white : AppTheme.ink,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     row.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall,
+                    style: text.titleSmall,
                   ),
                 ),
                 ReportPill(
@@ -329,37 +365,64 @@ class _SchoolLevelsRow extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
-                height: 14,
-                child: row.assessed == 0
-                    ? ColoredBox(color: AppTheme.line)
-                    : Row(
-                        children: [
-                          for (
-                            int level = 1;
-                            level < SchoolLevels.levels;
-                            level++
-                          )
-                            if (row.levels[level] > 0)
-                              Expanded(
-                                flex: row.levels[level],
-                                child: ColoredBox(color: colors[level - 1]),
-                              ),
-                        ],
-                      ),
+            const SizedBox(height: 12),
+            _LevelsBar(counts: row.levels, colors: colors, height: 14),
+            const SizedBox(height: 8),
+            Text.rich(
+              TextSpan(
+                text: '${row.assessed} evaluados · ${row.pending} sin evaluar',
+                children: [
+                  if (stale)
+                    const TextSpan(
+                      text: ' · sin actualizar',
+                      style: TextStyle(color: AppTheme.amberText),
+                    ),
+                ],
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${row.assessed} evaluados · ${row.pending} sin evaluar'
-              '${stale ? ' · sin actualizar' : ''}',
-              style: Theme.of(context).textTheme.bodySmall,
+              style: text.bodySmall,
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/** Stacked bar with one color per ENAd level (counts[0] = not assessed, not drawn). */
+class _LevelsBar extends StatelessWidget {
+  const _LevelsBar({
+    required this.counts,
+    required this.colors,
+    required this.height,
+  });
+  final List<int> counts;
+  final List<Color> colors;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    int assessed = 0;
+    for (int level = 1; level < SchoolLevels.levels; level++) {
+      assessed += counts[level];
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: assessed == 0
+            ? ColoredBox(color: AppTheme.line)
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (int level = 1; level < SchoolLevels.levels; level++)
+                    if (counts[level] > 0)
+                      Expanded(
+                        flex: counts[level],
+                        child: ColoredBox(color: colors[level - 1]),
+                      ),
+                ],
+              ),
       ),
     );
   }
