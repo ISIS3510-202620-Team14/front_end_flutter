@@ -1,165 +1,141 @@
 import 'dart:convert';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
+import 'package:front_end_flutter/data/repository/aux_attendance_map.dart';
 import 'package:front_end_flutter/data/repository/reports_repository.dart';
 import 'package:front_end_flutter/domain/model/attendance_map.dart';
-import 'package:front_end_flutter/ui/theme/app_date.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/*   YES TEACHER I WROTE COMMENTS, JSJSJ */
 
 class AttendanceMapRepository {
   AttendanceMapRepository(this._api, {this.onLog});
+
   final ApiClient _api;
+
   final void Function(String message)? onLog;
 
-  void _log(String message) {
-    if (kDebugMode) debugPrint('[mapa] $message');
-    onLog?.call(message);
-  }
+  // =================== 1. CACHING + EVENTUAL CONNECTIVITY ===================
 
-  String get _key {
-    return 'attendance_map_${FirebaseAuth.instance.currentUser?.uid}';
-  }
-
-  static const String _cacheKey = 'attendance_map';
-
-  /* CACHING: Cache then network
-
-  1. Emits the cached map right away (RAM, or the copy saved on the phone).
-  2. Asks the network for the new map and emits it when it arrives.
-  If the network fails, the cached map stays, marked as offline.
-  */
   Stream<({AttendanceMap map, String source})> load() async* {
-    final AttendanceMap? cached = await _cached();
-    if (cached != null) {
-      _log('Cache then network: mostrando la caché mientras llega la red');
-      yield (map: cached, source: 'cache');
+    // 1. Look for the saved map: first in RAM, then on the phone.
+    // 2. If there is a saved map, show it right awa
+    // 3. Try to download the fresh map from the network (red).
+    // 4. If the network fails, show the saved map (disco).
+
+
+    // 1
+    AttendanceMap? saved = ReportsRepository.cache.get<AttendanceMap>(
+      attendanceRamKey,
+    );
+    if (saved != null) {
+      onLog?.call('Caché en memoria (RAM): ACIERTO');
     } else {
-      _log('Cache then network: no hay caché, esperando la red');
+      final preferences = await SharedPreferences.getInstance();
+      final String? json = preferences.getString(attendancePhoneKey());
+      if (json != null) {
+        onLog?.call(
+          'Copia guardada en el celular: ACIERTO (${json.length} bytes)',
+        );
+        saved = AttendanceMap.fromJson(jsonDecode(json));
+      }
+    }
+    // 2
+    if (saved != null) {
+      yield (map: saved, source: 'cache');
     }
     try {
-      final AttendanceMap fresh = await _download();
-      ReportsRepository.cache.put(_cacheKey, fresh, expires: false);
-      _log('Red respondió: la caché se actualizó');
+      // 3. 
+      final List<String> thisWeek = thisWeekDays();
+      final schools = await _downloadAllSchools(thisWeek);
+      final AttendanceMap fresh = await _calculateInAnotherIsolate(
+        thisWeek,
+        schools,
+      );
+      await _save(fresh);
       yield (map: fresh, source: 'red');
     } catch (error) {
-      final String reason = '$error';
-      _log(
-        'Falló la red: ${reason.length > 80 ? reason.substring(0, 80) : reason}',
-      );
-      if (cached == null) {
-        _log('Sin caché ni copia guardada: no hay mapa que mostrar');
+      // 4. 
+      onLog?.call('Falló la red: $error');
+      if (saved == null) {
         rethrow;
       }
-      yield (map: cached, source: 'disco');
+      yield (map: saved, source: 'disco');
     }
   }
 
-  Future<AttendanceMap?> _cached() async {
-    final AttendanceMap? inMemory = ReportsRepository.cache.get<AttendanceMap>(
-      _cacheKey,
-    );
-    if (inMemory != null) {
-      _log('Caché en memoria (RAM): ACIERTO');
-      return inMemory;
-    }
-    final preferences = await SharedPreferences.getInstance();
-    final String? saved = preferences.getString(_key);
-    if (saved == null) return null;
-    _log('Copia guardada en el celular: ACIERTO (${saved.length} bytes)');
-    return AttendanceMap.fromJson(jsonDecode(saved));
-  }
+  // =================== 2. CONCURRENCY ===================
 
-  Future<AttendanceMap> _download() async {
-    final DateTime monday = DateTime.parse(
-      AppDate.mondayOfWeek(DateTime.now()),
-    );
-    final List<String> days = [for (int i = 0; i < 5; i++) _date(monday, i)];
-    final List<String> lastWeek = [
-      for (int i = -7; i < -2; i++) _date(monday, i),
-    ];
-    final String today = DateTime.now()
-        .toUtc()
-        .subtract(const Duration(hours: 5))
-        .toIso8601String()
-        .substring(0, 10);
-    final List<String> asked = [
-      ...lastWeek,
-      ...days.where((day) => day.compareTo(today) <= 0),
-    ];
+  Future<List<Map<String, dynamic>>> _downloadAllSchools(
+    List<String> thisWeek,
+  ) async {
+    // 1. Get the days to ask for and the list of schools.
+    // 2. Start one request per school and per day, all at the same time.
+    // 3. Wait until all of them finish (Future.wait).
+    // 4. Group the responses into one row per school.
+
+    // 1
+    final List<String> asked = askedDays(thisWeek);
     final List schools = (await _api.request('GET', 'schools'))['schools'];
-    _log('GET schools → ${schools.length} instituciones');
-    final Stopwatch watch = Stopwatch()..start();
-    _log(
+    onLog?.call('GET schools → ${schools.length} instituciones');
+    // 2
+    onLog?.call(
       'Future.wait: ${schools.length * asked.length} peticiones en paralelo',
     );
+    final Stopwatch watch = Stopwatch()..start();
+    final List<Future<Map<String, dynamic>>> requests = [];
+    for (final school in schools) {
+      for (final String day in asked) {
+        requests.add(
+          _api.request(
+            'GET',
+            'students',
+            query: {'schoolId': school['id'], 'date': day},
+          ),
+        );
+      }
+    }
+    // 3
+    final List<Map<String, dynamic>> responses = await Future.wait(requests);
+    onLog?.call('Future.wait terminó en ${watch.elapsedMilliseconds} ms');
+    // 4
+    return groupBySchool(schools, asked.length, responses);
+  }
 
-    /* CONCURRENCY 
-    
-    `Future.wait` to fetch data for multiple (API requests) 
-    schools and days AND 3 more concurrently. 
-    a bunch of GETS 
-    [
-      {name: "I.E.R. La Esperanza", thisWeek: [lista lun, lista mar, ...], lastWeek: [...]},
-      {name: "Demostración Samuel", thisWeek: [...], lastWeek: [...]},
-      {name: "rogelio", ...},
-    ] 
-    */
+  // =================== 3. MULTI-THREADING ===================
 
-    final List<Map<String, dynamic>> rows = await Future.wait([
-      for (final school in schools)
-        () async {
-          final List lists = await Future.wait([
-            for (final day in asked) _students(school['id'], day),
-          ]);
-          return {
-            'name': school['name'],
-            'lastWeek': lists.sublist(0, 5),
-            'thisWeek': [
-              ...lists.sublist(5),
-              for (int i = lists.length - 5; i < 5; i++) const [],
-            ],
-          };
-        }(),
-    ]);
-    _log('Future.wait terminó en ${watch.elapsedMilliseconds} ms');
-    watch.reset();
-    _log('compute(): calculando en otro isolate');
+  Future<AttendanceMap> _calculateInAnotherIsolate(
+    List<String> thisWeek,
+    List<Map<String, dynamic>> schools,
+  ) async {
+    // 1. Calculate the percentages in another isolate,
+    //    so the screen does not freeze (compute).
 
-    /* MULTI-THREADING
-
-    `compute` to build the AttendanceMap in OTHER isolate.
-   
-    */
-
+    // 1
+    onLog?.call('compute(): calculando en otro isolate');
+    final Stopwatch watch = Stopwatch()..start();
     final AttendanceMap map = await compute(buildAttendanceMap, {
-      'days': days,
-      'schools': rows,
+      'days': thisWeek,
+      'schools': schools,
     });
-
-    _log('compute() terminó en ${watch.elapsedMilliseconds} ms');
-
-    final preferences = await SharedPreferences.getInstance();
-    final String json = jsonEncode(map.toJson());
-    await preferences.setString(_key, json);
-    _log('SharedPreferences: mapa guardado (${json.length} bytes)');
+    onLog?.call('compute() terminó en ${watch.elapsedMilliseconds} ms');
+  
     return map;
   }
 
-  Future<List> _students(String schoolId, String day) async {
-    final result = await _api.request(
-      'GET',
-      'students',
-      query: {'schoolId': schoolId, 'date': day},
-    );
-    return result['students'] as List;
-  }
+  // =================== 4. LOCAL STORAGE ===================
 
-  static String _date(DateTime monday, int plusDays) {
-    return monday
-        .add(Duration(days: plusDays))
-        .toIso8601String()
-        .substring(0, 10);
+  Future<void> _save(AttendanceMap map) async {
+    // 1. Save in RAM: fastest, but lost when the app is closed.
+    // 2. Save on the phone as JSON (SharedPreferences): survives closing the app.
+
+    // 1
+    ReportsRepository.cache.put(attendanceRamKey, map, expires: false);
+    // 2
+    final preferences = await SharedPreferences.getInstance();
+    final String json = jsonEncode(map.toJson());
+    await preferences.setString(attendancePhoneKey(), json);
+    onLog?.call('SharedPreferences: mapa guardado (${json.length} bytes)');
   }
 }
