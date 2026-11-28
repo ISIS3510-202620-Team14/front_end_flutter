@@ -81,7 +81,7 @@ mixin ReportSnapshotMixin<T extends StatefulWidget> on State<T> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: OfflineNotice(
         messages: [
-          'Sin conexión. Datos guardados ${SavedData.when(savedAt)}.',
+          'Sin conexión. Datos guardados ${SavedData.when(savedAt)}',
           'Se actualizará solo cuando vuelva internet.',
         ],
         onRefresh: reloadReport,
