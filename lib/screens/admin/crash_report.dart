@@ -3,6 +3,7 @@ import 'package:front_end_flutter/data/remote/api_client.dart';
 import 'package:front_end_flutter/data/repository/report_loader.dart';
 import 'package:front_end_flutter/data/repository/reports_repository.dart';
 import 'package:front_end_flutter/screens/admin/report_format.dart';
+import 'package:front_end_flutter/screens/admin/report_header.dart';
 import 'package:front_end_flutter/screens/admin/report_snapshot_mixin.dart';
 import 'package:front_end_flutter/ui/components/enad_panel.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
@@ -201,7 +202,6 @@ class _CrashReportState extends State<CrashReport>
   List<Widget> _content(Map<String, dynamic> report) {
     final List weeks = (report['byWeek'] as List?) ?? const [];
     final List screens = (report['byScreen'] as List?) ?? const [];
-    final num weekBiggest = _biggest(weeks, 'crashRate');
     final num screenBiggest = _biggest(screens, 'share');
     return [
       const SizedBox(height: 12),
@@ -220,17 +220,26 @@ class _CrashReportState extends State<CrashReport>
           ),
         ],
       ),
-      _group('Fallos por semana', [
-        for (final week in weeks.reversed)
-          if (week is Map)
-            _bar(
-              weekLabel('${week['week']}'),
-              '${week['crashes']} de ${week['sessions']} · '
-              '${adminPercentage(week['crashRate'] as num?)}',
-              week['crashRate'] as num?,
-              weekBiggest,
-            ),
-      ]),
+      Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: EnadPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Fallos por semana',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Text(
+                '% de sesiones que terminaron en un fallo',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              _WeekLine(weeks: weeks),
+            ],
+          ),
+        ),
+      ),
       _group('Pantalla donde pasó', [
         for (final row in screens)
           if (row is Map)
@@ -267,40 +276,166 @@ class _CrashReportState extends State<CrashReport>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Sesiones que terminan con un error de la app (últimas 8 semanas).',
-              ),
-            ),
-            IconButton(
-              onPressed: _loading ? null : () => _load(force: true),
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Actualizar',
-            ),
-          ],
+        ReportHeader(
+          title: 'Fallos de la app',
+          description: 'Sesiones que terminan con la app cerrada por un error (últimas 8 semanas).',
+          loading: _loading,
+          onRefresh: () => _load(force: true),
         ),
         snapshotNotice(),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 24),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-        if (_error != null) ...[
-          Text(_error!),
-          TextButton(
-            onPressed: () => _load(force: true),
-            child: const Text('Reintentar'),
-          ),
-        ],
+        const SizedBox(height: 12),
+        if (_loading) const ReportLoading(),
+        if (!_loading && _error != null) ReportMessagePanel(text: _error!),
         if (!_loading && report != null && sessions == 0)
-          const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: Text('Todavía no hay sesiones registradas.'),
+          const ReportMessagePanel(
+            text: 'Todavía no hay sesiones registradas.',
           ),
         if (!_loading && report != null && sessions > 0) ..._content(report),
       ],
     );
+  }
+}
+
+/** Line with the crash % of each week, like LineaSemanas in Kotlin.
+ * Weeks with no sessions have no point.
+ */
+class _WeekLine extends StatelessWidget {
+  const _WeekLine({required this.weeks});
+  final List weeks;
+
+  static const List<String> _months = [
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
+  ];
+
+  String _short(Object? monday) {
+    final DateTime? day = DateTime.tryParse('$monday');
+    return day == null ? '$monday' : '${day.day} ${_months[day.month - 1]}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final List<num?> values = [
+      for (final week in weeks) week is Map ? week['crashRate'] as num? : null,
+    ];
+    num top = 5;
+    for (final num? value in values) {
+      if (value != null && value > top) {
+        top = value;
+      }
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 140,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(adminPercentage(top), style: text.labelSmall),
+                  Text('0 %', style: text.labelSmall),
+                ],
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: CustomPaint(
+                  painter: _WeekLinePainter(values, top.toDouble()),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (weeks.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 40, top: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _short((weeks.first as Map)['week']),
+                  style: text.labelSmall,
+                ),
+                if (weeks.length > 1)
+                  Text(
+                    _short((weeks.last as Map)['week']),
+                    style: text.labelSmall,
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _WeekLinePainter extends CustomPainter {
+  _WeekLinePainter(this.values, this.top);
+  final List<num?> values;
+  final double top;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Base line at 0 %.
+    // 2. One point per week with sessions (oldest on the left).
+    // 3. Join the points with a line.
+
+    // 1
+    final Paint base = Paint()
+      ..color = AppTheme.line
+      ..strokeWidth = 2;
+    canvas.drawLine(
+      Offset(0, size.height),
+      Offset(size.width, size.height),
+      base,
+    );
+    if (values.isEmpty) {
+      return;
+    }
+    // 2
+    final double step = values.length > 1
+        ? size.width / (values.length - 1)
+        : 0;
+    final List<Offset> points = [];
+    for (int i = 0; i < values.length; i++) {
+      final num? value = values[i];
+      if (value != null) {
+        points.add(Offset(i * step, size.height - value / top * size.height));
+      }
+    }
+    // 3
+    final Paint line = Paint()
+      ..color = AppTheme.red
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+    if (points.length > 1) {
+      final Path path = Path()..moveTo(points.first.dx, points.first.dy);
+      for (final Offset point in points.skip(1)) {
+        path.lineTo(point.dx, point.dy);
+      }
+      canvas.drawPath(path, line);
+    }
+    final Paint dot = Paint()..color = AppTheme.red;
+    for (final Offset point in points) {
+      canvas.drawCircle(point, 5, dot);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_WeekLinePainter old) {
+    return old.values != values || old.top != top;
   }
 }
