@@ -14,6 +14,7 @@ class MyReports {
   static const String scanReview = 'bq9_revision';
   static const String activities = 'bq11_actividades';
   static const String assessments = 'bq12_evaluaciones';
+  static const String crashes = 'bq16_fallos';
 }
 
 /** Where the report on screen came from. */

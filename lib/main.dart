@@ -8,6 +8,7 @@ import 'package:front_end_flutter/ui/theme/app_theme.dart';
 import 'package:front_end_flutter/screens/auth/auth_gate.dart';
 
 import 'data/sync/background_sync.dart';
+import 'data/telemetria/crash_log.dart';
 part 'app/my_app.dart';
 
 /** Initializes Firebase and opens the app. */
@@ -27,5 +28,9 @@ Future<void> main() async {
   }
 
   await BackgroundSync.initialize();
+  // BQ 16: count this session and catch crashes.
+  try {
+    await CrashLog.install();
+  } catch (_) {}
   runApp(const MyApp());
 }

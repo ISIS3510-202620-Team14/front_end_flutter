@@ -8,6 +8,7 @@ export 'report_index.dart';
 import 'package:front_end_flutter/screens/admin/assessments_report.dart';
 import 'package:front_end_flutter/screens/admin/attendance_conflicts_report.dart';
 import 'package:front_end_flutter/screens/admin/classification_report.dart';
+import 'package:front_end_flutter/screens/admin/crash_report.dart';
 import 'package:front_end_flutter/screens/admin/grouping_sync_report.dart';
 import 'package:front_end_flutter/screens/admin/hours_report.dart';
 import 'package:front_end_flutter/screens/admin/scan_quality_report.dart';
