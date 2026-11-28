@@ -319,10 +319,12 @@ class OfflineRuntime extends ChangeNotifier with WidgetsBindingObserver {
     final int newAttention = history.where((op) {
       return ['conflict', 'failed'].contains(op['state']);
     }).length;
-    // This runs every 2 seconds: the saved progress is dropped only when something really changed.
-    if (newPending != pending || newAttention != attention) {
-      ProgressCache.clear();
+    // This runs every 2 seconds, so it only tells the screens when something really changed.
+    // Before it notified every time and Hoy and Asistencia reloaded every 2 seconds.
+    if (newPending == pending && newAttention == attention) {
+      return;
     }
+    ProgressCache.clear();
     pending = newPending;
     attention = newAttention;
     notifyListeners();
