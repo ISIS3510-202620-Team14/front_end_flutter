@@ -219,7 +219,7 @@ class _LevelMapViewState extends State<LevelMapView> {
   }
 
   Widget _fallback() {
-    // Generic fallback (strategy 6): never a white page.
+    // Generic fallback : never a white page.
     return const EnadPanel(
       child: Column(
         children: [
@@ -267,39 +267,49 @@ class _LevelMapViewState extends State<LevelMapView> {
           final List<Color> colors = [for (final Level l in _levels) l.color];
           return RefreshIndicator(
             onRefresh: () => _viewModel.refresh(force: true),
-            child: ListView(
+            // MICRO-OPTIMIZATION (Sprint 4): ListView.builder only builds the rows on screen.
+            child: ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(AppTheme.pageInset),
-              children: [
-                _status(),
-                const SizedBox(height: 12),
-                _filters(),
-                const SizedBox(height: 12),
-                if (_viewModel.status == LevelsStatus.loading && rows.isEmpty)
-                  const Center(child: CircularProgressIndicator())
-                else if (rows.isEmpty &&
-                    _viewModel.status != LevelsStatus.updating)
-                  _fallback()
-                else if (rows.isNotEmpty)
-                  _summary(text, colors),
-                const SizedBox(height: 20),
-                if (rows.isNotEmpty) ...[
-                  Text('Instituciones', style: text.titleMedium),
-                  Text(
-                    'De la que más apoyo necesita a la que menos',
-                    style: text.bodySmall,
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                for (int i = 0; i < rows.length; i++)
-                  _SchoolLevelsRow(
-                    key: ValueKey(rows[i].schoolId),
-                    rank: i + 1,
-                    row: rows[i],
-                    colors: colors,
-                    stale: _viewModel.isStale(rows[i]),
-                  ),
-              ],
+              itemCount: rows.length + 1,
+              itemBuilder: (BuildContext context, int index) {
+                if (index == 0) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _status(),
+                      const SizedBox(height: 12),
+                      _filters(),
+                      const SizedBox(height: 12),
+                      if (_viewModel.status == LevelsStatus.loading &&
+                          rows.isEmpty)
+                        const Center(child: CircularProgressIndicator())
+                      else if (rows.isEmpty &&
+                          _viewModel.status != LevelsStatus.updating)
+                        _fallback()
+                      else if (rows.isNotEmpty)
+                        _summary(text, colors),
+                      const SizedBox(height: 20),
+                      if (rows.isNotEmpty) ...[
+                        Text('Instituciones', style: text.titleMedium),
+                        Text(
+                          'De la que más apoyo necesita a la que menos',
+                          style: text.bodySmall,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                  );
+                }
+                final LevelRow row = rows[index - 1];
+                return _SchoolLevelsRow(
+                  key: ValueKey(row.schoolId),
+                  rank: index,
+                  row: row,
+                  colors: colors,
+                  stale: _viewModel.isStale(row),
+                );
+              },
             ),
           );
         },
@@ -322,13 +332,16 @@ class _SchoolLevelsRow extends StatelessWidget {
   final List<Color> colors;
   final bool stale;
 
+  // MICRO-OPTIMIZATION (Sprint 4): created once, not on every build (like objects in onDraw).
+  static const EdgeInsets _spacing = EdgeInsets.only(bottom: 12);
+
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     final double? share = row.beginnerShare;
     final bool alert = share != null && share >= 50;
     return Padding(
-      padding: EdgeInsets.only(bottom: 12),
+      padding: _spacing,
       child: EnadPanel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,6 +412,10 @@ class _LevelsBar extends StatelessWidget {
   final List<Color> colors;
   final double height;
 
+  // MICRO-OPTIMIZATION (Sprint 4): created once, not on every build.
+  static const BorderRadius _barRadius = BorderRadius.all(Radius.circular(6));
+  static const Widget _emptyBar = ColoredBox(color: AppTheme.line);
+
   @override
   Widget build(BuildContext context) {
     int assessed = 0;
@@ -406,12 +423,12 @@ class _LevelsBar extends StatelessWidget {
       assessed += counts[level];
     }
     return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: _barRadius,
       child: SizedBox(
         height: height,
         width: double.infinity,
         child: assessed == 0
-            ? ColoredBox(color: AppTheme.line)
+            ? _emptyBar
             : Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
