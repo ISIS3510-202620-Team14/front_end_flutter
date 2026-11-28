@@ -1,6 +1,7 @@
 // lib/screens/admin/admin_portal_view.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:front_end_flutter/data/repository/report_loader.dart';
 import 'package:front_end_flutter/ui/components/home_top_bar.dart';
 import 'package:front_end_flutter/screens/admin/institutions_view.dart';
 import 'package:front_end_flutter/screens/admin/reports_view.dart';
@@ -23,6 +24,22 @@ class _AdminPortalViewState extends State<AdminPortalView> {
   int _report = ReportIndex.weeklyOpens;
   // Each time that the summary opens a report, the reports view is recreated in that chip.
   int _opened = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // MULTITHREADING (Sprint 3 fix): the chain of Futures runs while the portal is already usable.
+    ReportLoader.prefetchMine().then((int saved) {
+      if (!mounted || saved == 0) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            '$saved de 5 reportes guardados para verlos sin internet.',
+          ),
+        ),
+      );
+    });
+  }
 
   void _openReport(int report) {
     setState(() {
