@@ -14,6 +14,7 @@ class _ReportsViewState extends State<ReportsView> {
     'Revisión',
     'Guías',
     'En riesgo',
+    'Fallos',
   ];
   late int _selected = widget.initial;
 
@@ -52,6 +53,8 @@ class _ReportsViewState extends State<ReportsView> {
         return const ScanReviewReport();
       case ReportIndex.teachersAtRisk:
         return const TeachersAtRiskReport();
+      case ReportIndex.crashes:
+        return const CrashReport();
       default:
         return const TutorialStepsReport();
     }

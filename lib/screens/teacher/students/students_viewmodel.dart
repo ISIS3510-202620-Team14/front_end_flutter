@@ -16,7 +16,9 @@ class StudentsViewModel extends SafeNotifier {
   }
 
   void _syncChanged() {
-    if (!disposed && !updating && !_loading) _load();
+    // The sync only refreshes the list in the background: no loading state if it is already on screen.
+    if (!disposed && !updating && !_loading)
+      _load(silent: _students.isNotEmpty);
   }
 
   final StudentsRepository _service;
@@ -52,7 +54,7 @@ class StudentsViewModel extends SafeNotifier {
     }).length;
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool silent = false}) async {
     final int version = ++_loadVersion;
     final date =
         attendanceDate ??
@@ -62,8 +64,10 @@ class StudentsViewModel extends SafeNotifier {
             .toIso8601String()
             .substring(0, 10);
     attendanceDate = date;
-    _loading = true;
-    notifyListeners();
+    if (!silent) {
+      _loading = true;
+      notifyListeners();
+    }
     try {
       final List<Student> loaded = await _service.fetchStudents(
         attendanceDate: date,

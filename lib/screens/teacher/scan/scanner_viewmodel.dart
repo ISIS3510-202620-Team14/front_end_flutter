@@ -29,6 +29,7 @@ class ScannerViewModel extends SafeNotifier {
     ScanReviewLog? reviewLog,
   }) {
     final service = scanner ?? StudentListScanner();
+    _service = service;
     _capture = capture;
     _read = read ?? service.read;
     _own = own ?? service.own;
@@ -36,6 +37,7 @@ class ScannerViewModel extends SafeNotifier {
     _reviewLog = reviewLog ?? ScanReviewLog();
   }
   Future<CapturedPhoto?> Function()? _capture;
+  late final StudentListScanner _service;
   late final Future<List<ScannedRow>> Function(String, int, CaptureConditions)
   _read;
   late final void Function(String) _own;
@@ -69,6 +71,21 @@ class ScannerViewModel extends SafeNotifier {
   /** Reports unfinished page work. */
   bool get processing {
     return _active > 0 || _queue.isNotEmpty;
+  }
+
+  /** Connects the camera of the sheet that is open now (null when it closes). */
+  void attachCamera(Future<CapturedPhoto?> Function()? capture) {
+    _capture = capture;
+  }
+
+  /** Pages parsed by the worker isolate (developer mode). */
+  int get workerPages {
+    return _service.worker.parsedPages;
+  }
+
+  /** True while the worker isolate is alive (developer mode). */
+  bool get workerAlive {
+    return _service.worker.alive;
   }
 
   /** Keeps field identities stable while rows are edited. */

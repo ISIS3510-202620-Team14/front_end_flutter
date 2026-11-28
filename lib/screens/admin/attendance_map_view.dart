@@ -52,27 +52,40 @@ class _AttendanceMapViewState extends State<AttendanceMapView> {
   List<SavedReport> _reports = [];
   StreamSubscription<({AttendanceMap map, String source})>? _loading;
   StreamSubscription<List<ConnectivityResult>>? _network;
-  final List<String> _logs = [];
+  // Logs grouped by event: every load of the map starts a new group.
+  final List<_LogGroup> _logGroups = [];
+  int _seenLogGroups = 0;
+  final ValueNotifier<int> _logVersion = ValueNotifier<int>(0);
 
-  void _addLog(String message) {
+  String _clock() {
     final DateTime now = DateTime.now();
     String two(int value) => value.toString().padLeft(2, '0');
-    _logs.add(
-      '${two(now.hour)}:${two(now.minute)}:${two(now.second)}  $message',
-    );
+    return '${two(now.hour)}:${two(now.minute)}:${two(now.second)}';
+  }
+
+  void _startLogGroup(String title) {
+    if (!mounted) return;
+    _logGroups.add(_LogGroup(_logGroups.length + 1, title, _clock()));
+    _logVersion.value++;
+  }
+
+  void _addLog(String message) {
+    if (!mounted) return;
+    if (_logGroups.isEmpty) _startLogGroup('Inicio');
+    _logGroups.last.lines.add('${_clock()}  $message');
+    _logVersion.value++;
   }
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _load('Abriste el mapa');
     _loadReports();
     _network = Connectivity().onConnectivityChanged.listen((connections) {
       final bool online = !connections.contains(ConnectivityResult.none);
       _addLog('Conectividad: ${connections.map((c) => c.name).join(', ')}');
       if (online && _source == 'disco') {
-        _addLog('Volvió el internet → recargando solo');
-        _load();
+        _load('Volvió el internet → recarga automática');
       }
     });
   }
@@ -82,10 +95,12 @@ class _AttendanceMapViewState extends State<AttendanceMapView> {
     _loading?.cancel();
     _network?.cancel();
     _api.dispose();
+    _logVersion.dispose();
     super.dispose();
   }
 
-  void _load() {
+  void _load(String reason) {
+    _startLogGroup(reason);
     _loading?.cancel();
     setState(() {
       _failed = false;
@@ -265,39 +280,120 @@ class _AttendanceMapViewState extends State<AttendanceMapView> {
       builder: (context) {
         return SizedBox(
           height: MediaQuery.of(context).size.height * 0.6,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Logs de esta página',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                  children: [
-                    for (final String line in _logs)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Text(
-                          line,
-                          style: const TextStyle(
-                            fontFamily: 'Courier',
-                            fontSize: 12,
+          // Rebuilds the panel every time a new log arrives.
+          child: ValueListenableBuilder<int>(
+            valueListenable: _logVersion,
+            builder: (context, _, _) {
+              final TextTheme text = Theme.of(context).textTheme;
+              final List<_LogGroup> newestFirst = _logGroups.reversed.toList();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Logs de esta página',
+                            style: text.titleMedium,
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
+                        TextButton(
+                          onPressed: () {
+                            _logGroups.clear();
+                            _seenLogGroups = 0;
+                            _logVersion.value++;
+                          },
+                          child: const Text('Borrar'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      'Lo más reciente arriba',
+                      style: text.bodySmall,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      children: [
+                        for (int i = 0; i < newestFirst.length; i++)
+                          _logGroupTile(
+                            newestFirst[i],
+                            isNew: newestFirst[i].number > _seenLogGroups,
+                            latest: i == 0,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
+    ).whenComplete(() {
+      // Everything shown until now is no longer new.
+      _seenLogGroups = _logGroups.isEmpty ? 0 : _logGroups.last.number;
+    });
+  }
+
+  Widget _logGroupTile(
+    _LogGroup group, {
+    required bool isNew,
+    required bool latest,
+  }) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Container(
+      key: ObjectKey(group),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isNew ? AppTheme.amberBackground : null,
+        border: Border.all(color: AppTheme.line),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: latest,
+        shape: const Border(),
+        collapsedShape: const Border(),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '#${group.number} · ${group.title}',
+                style: text.titleSmall,
+              ),
+            ),
+            if (isNew)
+              Text(
+                'NUEVO',
+                style: text.labelSmall?.copyWith(color: AppTheme.amberText),
+              ),
+          ],
+        ),
+        subtitle: Text(
+          '${group.time} · ${group.lines.length} líneas',
+          style: text.bodySmall,
+        ),
+        children: [
+          for (final String line in group.lines)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Text(
+                line,
+                style: const TextStyle(fontFamily: 'Courier', fontSize: 12),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -372,7 +468,7 @@ class _AttendanceMapViewState extends State<AttendanceMapView> {
       if (_source == 'disco')
         OfflineNotice(
           messages: const ['Sin conexión · datos guardados'],
-          onRefresh: _load,
+          onRefresh: () => _load('Tocaste reintentar'),
         )
       else if (_refreshing)
         Row(
@@ -448,7 +544,10 @@ class _AttendanceMapViewState extends State<AttendanceMapView> {
               );
             },
           ),
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+          IconButton(
+            onPressed: () => _load('Recargaste (botón ↻)'),
+            icon: const Icon(Icons.refresh),
+          ),
         ],
       ),
       body: ListView(
@@ -471,4 +570,13 @@ class _AttendanceMapViewState extends State<AttendanceMapView> {
       ),
     );
   }
+}
+
+/** One event in the logs panel: a load of the map and everything it logged. */
+class _LogGroup {
+  _LogGroup(this.number, this.title, this.time);
+  final int number;
+  final String title;
+  final String time;
+  final List<String> lines = [];
 }

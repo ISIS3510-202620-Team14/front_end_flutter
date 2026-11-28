@@ -21,6 +21,21 @@ class ReportsRepository {
     cache.clear();
   }
 
+  /** BQ 16: sessions that end in a crash, by week, screen, version, model and system (8 weeks). */
+  Future<Map<String, dynamic>> crashes({bool force = false}) {
+    return _reportCache.getOrLoad<Map<String, dynamic>>('fallos', () async {
+      final Map<String, dynamic> result = await _api.request(
+        'GET',
+        'crashes/report',
+        query: {'weeks': '8'},
+      );
+      if (result['sessions'] is! num || result['byWeek'] is! List) {
+        throw const ApiException(502, 'El reporte recibido está incompleto.');
+      }
+      return result;
+    }, force: force);
+  }
+
   /** Attendance marks replaced by another device in a week (Monday as yyyy-MM-dd). */
   Future<Map<String, dynamic>> attendanceConflicts(
     String week, {
@@ -137,7 +152,10 @@ class ReportsRepository {
         ]);
         for (final Map<String, dynamic> answer in answers) {
           if (answer['teachers'] is! List) {
-            throw const ApiException(502, 'El reporte recibido está incompleto.');
+            throw const ApiException(
+              502,
+              'El reporte recibido está incompleto.',
+            );
           }
         }
         final List<Map<String, dynamic>> teachers = await compute(

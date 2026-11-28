@@ -10,6 +10,7 @@ import 'package:front_end_flutter/domain/model/scanned_row.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 import '../telemetria/analytics_service.dart';
+import 'parser_worker.dart';
 
 /** Reads each captured page locally; the photo itself comes from CameraCaptureView. */
 class StudentListScanner {
@@ -22,6 +23,9 @@ class StudentListScanner {
   String _appVersion = 'unknown';
   static const _channel = MethodChannel('enad/scanner');
   final String _session = const Uuid().v4();
+
+  /** Worker isolate that parses every page of this scan. */
+  final ParserWorker worker = ParserWorker();
 
   /** Marks a photo as owned by this scan, to delete it when closing. */
   void own(String path) {
@@ -46,13 +50,8 @@ class StudentListScanner {
       final lines = await _recognize(path, page);
       ocrMs = watch.elapsedMilliseconds;
       if (_closed) return [];
-      // # multithreading: worker parsing mirrors Santiago Quiroz's OCR pipeline.
-      // # micro opt
-      rows = await compute(
-        parseLines,
-        lines,
-        debugLabel: 'scanner-parser-$page',
-      );
+      // # multithreading: the long-lived worker isolate parses the page.
+      rows = await worker.parse(lines);
       parseMs = watch.elapsedMilliseconds - ocrMs;
       status = rows.isEmpty ? 'empty' : 'ready';
       return _closed ? [] : rows;
@@ -141,6 +140,7 @@ class StudentListScanner {
   /** Stops accepting work and removes unused photos. */
   Future<void> close() async {
     _closed = true;
+    worker.close();
     if (!kIsWeb && Platform.isAndroid) {
       try {
         await _channel.invokeMethod<void>('close', {'session': _session});
