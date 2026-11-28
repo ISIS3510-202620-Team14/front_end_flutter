@@ -2,7 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:front_end_flutter/data/remote/api_client.dart';
 import 'package:front_end_flutter/data/repository/reports_repository.dart';
-import 'package:front_end_flutter/screens/admin/report_message.dart';
+import 'package:front_end_flutter/data/repository/report_loader.dart';
+import 'package:front_end_flutter/screens/admin/report_snapshot_mixin.dart';
 import 'package:front_end_flutter/ui/components/enad_panel.dart';
 import 'package:front_end_flutter/ui/theme/app_theme.dart';
 
@@ -21,7 +22,8 @@ class TopActivitiesReport extends StatefulWidget {
   State<TopActivitiesReport> createState() => _TopActivitiesReportState();
 }
 
-class _TopActivitiesReportState extends State<TopActivitiesReport> {
+class _TopActivitiesReportState extends State<TopActivitiesReport>
+    with ReportSnapshotMixin<TopActivitiesReport> {
   ApiClient? _ownedApi;
   late final ReportsRepository _reports;
   Map<String, dynamic>? _report;
@@ -44,13 +46,20 @@ class _TopActivitiesReportState extends State<TopActivitiesReport> {
     super.dispose();
   }
 
+  @override
+  void reloadReport() {
+    _load(force: true);
+  }
+
   Future<void> _load({bool force = false}) async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final result = await _reports.topActivities(force: force);
+      final result = await loadReport(MyReports.activities, () {
+        return _reports.topActivities(force: force);
+      });
       if (!mounted) return;
       setState(() {
         _report = result;
@@ -59,7 +68,7 @@ class _TopActivitiesReportState extends State<TopActivitiesReport> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = reportErrorMessage(error);
+        _error = reportError(error);
         _loading = false;
       });
     }
@@ -134,6 +143,7 @@ class _TopActivitiesReportState extends State<TopActivitiesReport> {
             ),
           ],
         ),
+        snapshotNotice(),
         if (_loading)
           const Padding(
             padding: EdgeInsets.only(top: 24),
