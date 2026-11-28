@@ -5,6 +5,7 @@ import 'package:front_end_flutter/data/repository/attendance_map_repository.dart
 import 'package:front_end_flutter/data/repository/reports_repository.dart';
 import 'package:front_end_flutter/domain/model/attendance_map.dart';
 import 'package:front_end_flutter/screens/admin/attendance_map_view.dart';
+import 'package:front_end_flutter/screens/admin/levels/level_map_view.dart';
 import 'package:front_end_flutter/screens/admin/report_format.dart';
 import 'package:front_end_flutter/screens/admin/reports_view.dart';
 import 'package:front_end_flutter/ui/components/enad_panel.dart';
@@ -298,6 +299,32 @@ class _SummaryViewState extends State<SummaryView> {
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: _tile(_attendanceIndicator()),
+        ),
+        // Sprint 4 (BQ1): levels by institution view.
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppTheme.panelRadius),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const LevelMapView()),
+              );
+            },
+            child: EnadPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Niveles por institución',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const Text(
+                    'Qué institución tiene más estudiantes en Principiante, en Lectura y en Matemáticas.',
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
         _row(_schoolsIndicator(), _opensIndicator()),
         _row(_hoursIndicator(), _activityIndicator()),
