@@ -55,7 +55,12 @@ class LevelsDatabase extends GeneratedDatabase {
     );
   }
 
-  /** Replaces the counts of one institution in one transaction. */
+  /*
+    Replaces the counts of one institution.
+    MICRO-OPTIMIZATION (Sprint 4): Drift runs SQLite in a background isolate, so every
+    awaited statement is one round trip. Before: 1 DELETE + up to 42 INSERTs awaited one by
+    one. Now all of them go in ONE batch (one round trip, one transaction).
+  */
   Future<void> saveSchool(
     String uid,
     String schoolId,
@@ -63,8 +68,8 @@ class LevelsDatabase extends GeneratedDatabase {
     Int32List counts,
     DateTime savedAt,
   ) {
-    return transaction(() async {
-      await customStatement(
+    return batch((Batch b) {
+      b.customStatement(
         'DELETE FROM level_counts WHERE uid = ? AND school_id = ?',
         [uid, schoolId],
       );
@@ -73,7 +78,7 @@ class LevelsDatabase extends GeneratedDatabase {
           for (int level = 0; level < SchoolLevels.levels; level++) {
             final int students = counts[SchoolLevels.index(s, g, level)];
             if (students == 0) continue; // only cells with students
-            await customStatement(
+            b.customStatement(
               'INSERT INTO level_counts VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
               [
                 uid,
