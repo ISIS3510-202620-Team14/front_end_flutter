@@ -1,3 +1,6 @@
+import 'dart:collection';
+import 'dart:developer' show Timeline;
+
 import 'package:front_end_flutter/ui/theme/level_palette.dart';
 import 'package:front_end_flutter/ui/state/safe_notifier.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +14,7 @@ class ClassificationViewModel extends SafeNotifier {
     required this.title,
     required this.studentsViewModel,
   }) {
-    studentsViewModel.addListener(notifyListeners);
+    studentsViewModel.addListener(_onStudentsChanged);
   }
 
   final String title;
@@ -95,14 +98,35 @@ class ClassificationViewModel extends SafeNotifier {
     return _outOfSchoolExpanded;
   }
 
-  List<Student> get _visibleStudents {
-    if (_selectedCourse == 'Todos') {
-      return studentsViewModel.students;
-    } else {
-      return studentsViewModel.students.where((s) {
-        return s.grade == _selectedCourse;
-      }).toList();
-    }
+  /*
+    MICRO-OPTIMIZATION (Sprint 4): avoid unnecessary objects + indexed loop.
+    Before, every build filtered all the students 8 times (pending, 6 levels, withdrawn) and
+    made 8 new lists. Now they are grouped ONCE in one indexed pass and reused until the
+    students or the course change.
+  */
+  static const String _pendingKey = '__sin_evaluar__';
+  Map<String, List<Student>>? _groups;
+
+  Map<String, List<Student>> get _byLevel {
+    final Map<String, List<Student>>? cached = _groups;
+    if (cached != null) return cached;
+    return Timeline.timeSync('clasificacion:agrupar', () {
+      final Map<String, List<Student>> groups =
+          HashMap<String, List<Student>>();
+      final List<Student> all = studentsViewModel.students;
+      final bool everyCourse = _selectedCourse == 'Todos';
+      for (int i = 0; i < all.length; i++) {
+        final Student student = all[i];
+        if (!everyCourse && student.grade != _selectedCourse) continue;
+        (groups[levelOf(student) ?? _pendingKey] ??= <Student>[]).add(student);
+      }
+      return _groups = groups;
+    });
+  }
+
+  void _onStudentsChanged() {
+    _groups = null;
+    notifyListeners();
   }
 
   String? levelOf(Student student) {
@@ -114,15 +138,11 @@ class ClassificationViewModel extends SafeNotifier {
   }
 
   List<Student> get pendingStudents {
-    return _visibleStudents.where((s) {
-      return levelOf(s) == null;
-    }).toList();
+    return _byLevel[_pendingKey] ?? const <Student>[];
   }
 
   List<Student> studentsIn(String levelName) {
-    return _visibleStudents.where((s) {
-      return levelOf(s) == levelName;
-    }).toList();
+    return _byLevel[levelName] ?? const <Student>[];
   }
 
   bool isExpanded(int number) {
@@ -131,6 +151,7 @@ class ClassificationViewModel extends SafeNotifier {
 
   void selectCourse(String course) {
     _selectedCourse = course;
+    _groups = null;
     notifyListeners();
   }
 
@@ -190,7 +211,7 @@ class ClassificationViewModel extends SafeNotifier {
 
   @override
   void dispose() {
-    studentsViewModel.removeListener(notifyListeners);
+    studentsViewModel.removeListener(_onStudentsChanged);
     super.dispose();
   }
 }
