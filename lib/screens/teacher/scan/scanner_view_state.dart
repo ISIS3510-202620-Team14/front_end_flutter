@@ -3,11 +3,14 @@ part of 'scanner_view.dart';
 
 /** Owns the scanner while the sheet is open. */
 class _ScannerViewState extends State<ScannerView> {
-  final _thumbnails = ThumbnailCache();
-  late final _viewModel = ScannerViewModel(
-    allowProvisional: widget.allowProvisional,
-    capture: _captureWithCamera,
-  );
+  // CACHING: the scan and the thumbnails come from ScanSession, not from the sheet.
+  final ThumbnailCache _thumbnails = ScanSession.thumbnails;
+  late final ScannerViewModel _viewModel = ScanSession.of(
+    widget.allowProvisional,
+  )..attachCamera(_captureWithCamera);
+
+  /** True when the teacher imported or discarded: the session ends. */
+  bool _endSession = false;
 
   /** Opens own camera and, if the teacher takes a photo, returns its path and conditions. */
   Future<CapturedPhoto?> _captureWithCamera() {
@@ -24,12 +27,20 @@ class _ScannerViewState extends State<ScannerView> {
     );
   }
 
-  /** Releases the current scan. */
+  /** Keeps the scan for the next opening, unless it was imported or discarded. */
   @override
   void dispose() {
-    _thumbnails.dispose();
-    _viewModel.dispose();
+    _viewModel.attachCamera(null);
+    if (_endSession) {
+      ScanSession.finish(widget.allowProvisional);
+    }
     super.dispose();
+  }
+
+  /** Throws away the pages of this scan and closes the sheet. */
+  void _discard() {
+    _endSession = true;
+    Navigator.of(context).pop();
   }
 
   /** Shows capture, page progress and editable rows. */
@@ -68,6 +79,7 @@ class _ScannerViewState extends State<ScannerView> {
           importAction = () {
             // It registers before closing: after the ViewModel no longer exists.
             _viewModel.reportReview();
+            _endSession = true;
             return Navigator.of(context).pop(valid);
           };
         }
@@ -126,6 +138,30 @@ class _ScannerViewState extends State<ScannerView> {
                         ],
                       ),
                     ),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: DeveloperMode.enabled,
+                    builder: (context, enabled, _) {
+                      if (!enabled) {
+                        return const SizedBox.shrink();
+                      }
+                      final String worker = _viewModel.workerAlive
+                          ? 'vivo'
+                          : 'apagado';
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'DEV · worker isolate: $worker · '
+                          '${_viewModel.workerPages} páginas leídas\n'
+                          'DEV · caché miniaturas: '
+                          '${_thumbnails.hits} aciertos · '
+                          '${_thumbnails.misses} fallos',
+                          style: text.bodySmall?.copyWith(
+                            color: AppTheme.amberText,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     _hint(status),
@@ -200,8 +236,13 @@ class _ScannerViewState extends State<ScannerView> {
                     onPressed: () {
                       return Navigator.of(context).pop();
                     },
-                    child: const Text('Cancelar'),
+                    child: const Text('Cerrar'),
                   ),
+                  if (pages.isNotEmpty)
+                    TextButton(
+                      onPressed: _discard,
+                      child: const Text('Descartar páginas'),
+                    ),
                 ],
               ),
             ),
