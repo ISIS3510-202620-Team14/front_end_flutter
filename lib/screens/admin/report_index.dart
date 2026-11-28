@@ -11,4 +11,5 @@ class ReportIndex {
   static const scanReview = 8;
   static const guides = 9;
   static const teachersAtRisk = 10;
+  static const crashes = 11;
 }
